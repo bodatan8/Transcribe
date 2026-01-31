@@ -26,6 +26,20 @@ const ActionSkeleton = memo(() => (
 ActionSkeleton.displayName = 'ActionSkeleton'
 
 const ActionCard = memo(({ action, onStatusChange, onEdit, compact, onNavigateToEdit, startEditing, onClearEdit }) => {
+  // Normalize metadata field names (old → new for Salesforce compatibility)
+  const normalizeMetadata = (meta) => {
+    if (!meta) return {}
+    return {
+      contact: meta.contact || '',
+      contact_email: meta.contact_email || meta.email || '',
+      contact_phone: meta.contact_phone || meta.phone || '',
+      account: meta.account || meta.company || '',
+      due_date: meta.due_date || '',
+      priority: meta.priority || '',
+      notes: meta.notes || '',
+    }
+  }
+
   const [isEditing, setIsEditing] = useState(startEditing || false)
   
   // Auto-expand when startEditing becomes true
@@ -36,21 +50,22 @@ const ActionCard = memo(({ action, onStatusChange, onEdit, compact, onNavigateTo
   }, [startEditing]) // eslint-disable-line react-hooks/exhaustive-deps
   const [title, setTitle] = useState(action.title || '')
   const [description, setDescription] = useState(action.description || '')
-  const [metadata, setMetadata] = useState(action.metadata || {})
+  const [metadata, setMetadata] = useState(normalizeMetadata(action.metadata))
   const [saving, setSaving] = useState(false)
 
   // All actions are Salesforce Tasks
   const getIcon = () => '☐'
 
-  // All possible metadata fields from AI extraction
+  // Salesforce Task compatible metadata fields
+  // Maps to: Subject (title), Description, ActivityDate, Priority, WhoId (contact), WhatId (account)
   const metadataFields = [
-    { key: 'contact', label: 'Contact Name', icon: '◉', placeholder: 'John Smith', type: 'text' },
-    { key: 'email', label: 'Email', icon: '✉', placeholder: 'john@example.com', type: 'email' },
-    { key: 'phone', label: 'Phone', icon: '☏', placeholder: '+1 234 567 8900', type: 'tel' },
-    { key: 'company', label: 'Company', icon: '◈', placeholder: 'Acme Corp', type: 'text' },
-    { key: 'due_date', label: 'Due Date & Time', icon: '◷', placeholder: '', type: 'datetime-local' },
-    { key: 'priority', label: 'Priority', icon: '⚑', placeholder: '', type: 'select', options: ['high', 'medium', 'low'] },
-    { key: 'notes', label: 'Additional Notes', icon: '✎', placeholder: 'Extra context...', type: 'text' },
+    { key: 'contact', label: 'Contact/Lead Name', icon: '◉', placeholder: 'John Smith', type: 'text', sfField: 'WhoId (lookup)' },
+    { key: 'contact_email', label: 'Contact Email', icon: '✉', placeholder: 'john@example.com', type: 'email', sfField: 'WhoId (lookup)' },
+    { key: 'contact_phone', label: 'Contact Phone', icon: '☏', placeholder: '+1 234 567 8900', type: 'tel', sfField: 'WhoId (lookup)' },
+    { key: 'account', label: 'Account/Company', icon: '◈', placeholder: 'Acme Corp', type: 'text', sfField: 'WhatId (lookup)' },
+    { key: 'due_date', label: 'Due Date & Time', icon: '◷', placeholder: '', type: 'datetime-local', sfField: 'ActivityDate' },
+    { key: 'priority', label: 'Priority', icon: '⚑', placeholder: '', type: 'select', options: ['High', 'Normal', 'Low'], sfField: 'Priority' },
+    { key: 'notes', label: 'Additional Notes', icon: '✎', placeholder: 'Extra context...', type: 'text', sfField: 'Description (append)' },
   ]
 
   // Convert relative date strings to actual datetime
@@ -175,7 +190,7 @@ const ActionCard = memo(({ action, onStatusChange, onEdit, compact, onNavigateTo
     setIsEditing(false)
     setTitle(action.title || '')
     setDescription(action.description || '')
-    setMetadata(action.metadata || {})
+    setMetadata(normalizeMetadata(action.metadata))
     if (onClearEdit) onClearEdit(null)
   }
 
@@ -328,27 +343,27 @@ const ActionCard = memo(({ action, onStatusChange, onEdit, compact, onNavigateTo
                 <p className="text-sm text-slate-600 mb-3 line-clamp-2">{action.description}</p>
               )}
 
-              {/* Metadata tags - show all AI extracted fields */}
+              {/* Metadata tags - show all AI extracted fields (Salesforce compatible) */}
               {action.metadata && Object.keys(action.metadata).length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-3">
-                  {action.metadata.contact && (
+                  {(action.metadata.contact) && (
                     <span className="text-xs px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg">
                       ◉ {action.metadata.contact}
                     </span>
                   )}
-                  {action.metadata.email && (
+                  {(action.metadata.contact_email || action.metadata.email) && (
                     <span className="text-xs px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg">
-                      ✉ {action.metadata.email}
+                      ✉ {action.metadata.contact_email || action.metadata.email}
                     </span>
                   )}
-                  {action.metadata.phone && (
+                  {(action.metadata.contact_phone || action.metadata.phone) && (
                     <span className="text-xs px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg">
-                      ☏ {action.metadata.phone}
+                      ☏ {action.metadata.contact_phone || action.metadata.phone}
                     </span>
                   )}
-                  {action.metadata.company && (
+                  {(action.metadata.account || action.metadata.company) && (
                     <span className="text-xs px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg">
-                      ◈ {action.metadata.company}
+                      ◈ {action.metadata.account || action.metadata.company}
                     </span>
                   )}
                   {action.metadata.due_date && (
@@ -358,9 +373,9 @@ const ActionCard = memo(({ action, onStatusChange, onEdit, compact, onNavigateTo
                   )}
                   {action.metadata.priority && (
                     <span className={`text-xs px-2.5 py-1 rounded-lg ${
-                      action.metadata.priority === 'high' 
+                      action.metadata.priority === 'High' || action.metadata.priority === 'high'
                         ? 'bg-red-50 text-red-600' 
-                        : action.metadata.priority === 'medium'
+                        : action.metadata.priority === 'Normal' || action.metadata.priority === 'medium'
                         ? 'bg-amber-50 text-amber-600'
                         : 'bg-slate-100 text-slate-600'
                     }`}>
