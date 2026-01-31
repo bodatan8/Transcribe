@@ -83,6 +83,9 @@ export const processTranscription = async (recordingId, audioBlob) => {
       .eq('id', recordingId)
 
     if (error) throw error
+    
+    // Dispatch event to notify UI of transcription update
+    window.dispatchEvent(new CustomEvent('recordings-updated'))
 
     // Extract actions if we have real speech
     if (transcriptText && !transcriptText.startsWith('[')) {
@@ -138,6 +141,10 @@ const extractActions = async (recordingId, transcript) => {
     if (actionsError) throw actionsError
     
     console.log(`Successfully extracted ${extractedActions.length} actions from transcript`)
+    
+    // Dispatch event to notify UI components to refresh
+    window.dispatchEvent(new CustomEvent('actions-updated'))
+    window.dispatchEvent(new CustomEvent('recordings-updated'))
   } catch (error) {
     console.error('Error extracting actions:', error)
   }
