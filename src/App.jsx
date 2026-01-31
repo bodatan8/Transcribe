@@ -15,6 +15,11 @@ function AppContent() {
   const [triggerRecord, setTriggerRecord] = useState(false)
   const [activeView, setActiveView] = useState('dashboard')
   const [actionFilter, setActionFilter] = useState('pending')
+  const [editingActionId, setEditingActionId] = useState(null)
+
+  const handleEditAction = useCallback((actionId) => {
+    setEditingActionId(actionId || null)
+  }, [])
 
   const handleCommand = useCallback((commandId) => {
     switch (commandId) {
@@ -80,6 +85,8 @@ function AppContent() {
         triggerRecord={triggerRecord}
         actionFilter={actionFilter}
         onActionFilterChange={setActionFilter}
+        editingActionId={editingActionId}
+        onEditAction={handleEditAction}
       />
       <CommandPalette 
         isOpen={isOpen} 

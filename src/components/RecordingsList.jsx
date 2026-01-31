@@ -73,6 +73,28 @@ const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdi
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
+  // Format due date/time for display
+  const formatDueDate = (value) => {
+    if (!value) return value
+    // Handle datetime-local format
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) {
+      const date = new Date(value)
+      return date.toLocaleString('en-AU', { 
+        day: 'numeric', 
+        month: 'short',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      })
+    }
+    // Handle date-only format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const date = new Date(value + 'T00:00:00')
+      return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
+    }
+    return value
+  }
+
   const handleSave = async (andExtract = false) => {
     setSaving(true)
     try {
@@ -329,7 +351,7 @@ const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdi
                         <span className="text-xs px-2 py-0.5 bg-white rounded text-slate-600">◉ {action.metadata.contact}</span>
                       )}
                       {action.metadata.due_date && (
-                        <span className="text-xs px-2 py-0.5 bg-spratt-blue-50 rounded text-spratt-blue">◷ {action.metadata.due_date}</span>
+                        <span className="text-xs px-2 py-0.5 bg-spratt-blue-50 rounded text-spratt-blue">◷ {formatDueDate(action.metadata.due_date)}</span>
                       )}
                     </div>
                   )}

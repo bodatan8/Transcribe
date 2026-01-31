@@ -53,7 +53,7 @@ const SectionHeader = memo(({ title, badge, action, onAction }) => (
 
 SectionHeader.displayName = 'SectionHeader'
 
-export const Dashboard = memo(({ activeView, onViewChange, triggerRecord, actionFilter, onActionFilterChange }) => {
+export const Dashboard = memo(({ activeView, onViewChange, triggerRecord, actionFilter, onActionFilterChange, editingActionId, onEditAction }) => {
   const [pendingActionsCount, setPendingActionsCount] = useState(0)
 
   useEffect(() => {
@@ -77,12 +77,18 @@ export const Dashboard = memo(({ activeView, onViewChange, triggerRecord, action
     onActionFilterChange('pending')
   }, [onViewChange, onActionFilterChange])
 
+  const handleNavigateToEdit = useCallback((actionId) => {
+    onEditAction(actionId)
+    onViewChange('actions')
+    onActionFilterChange('pending')
+  }, [onViewChange, onActionFilterChange, onEditAction])
+
   const renderContent = () => {
     switch (activeView) {
       case 'recordings':
         return <RecordingsList />
       case 'actions':
-        return <ActionsList filter={actionFilter} onFilterChange={onActionFilterChange} />
+        return <ActionsList filter={actionFilter} onFilterChange={onActionFilterChange} editingActionId={editingActionId} onClearEdit={onEditAction} />
       case 'dashboard':
       default:
         return (
@@ -103,7 +109,7 @@ export const Dashboard = memo(({ activeView, onViewChange, triggerRecord, action
             {pendingActionsCount > 0 && (
               <section>
                 <SectionHeader title="Needs Review" badge={pendingActionsCount} action="View all" onAction={handleViewActions} />
-                <ActionsList filter="pending" limit={3} compact onFilterChange={onActionFilterChange} />
+                <ActionsList filter="pending" limit={3} compact onFilterChange={onActionFilterChange} onNavigateToEdit={handleNavigateToEdit} />
               </section>
             )}
           </div>

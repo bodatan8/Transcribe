@@ -25,21 +25,22 @@ const ActionSkeleton = memo(() => (
 
 ActionSkeleton.displayName = 'ActionSkeleton'
 
-const ActionCard = memo(({ action, onStatusChange, onEdit }) => {
-  const [isEditing, setIsEditing] = useState(false)
+const ActionCard = memo(({ action, onStatusChange, onEdit, compact, onNavigateToEdit, startEditing, onClearEdit }) => {
+  const [isEditing, setIsEditing] = useState(startEditing || false)
+  
+  // Auto-expand when startEditing becomes true
+  useEffect(() => {
+    if (startEditing && !isEditing) {
+      setIsEditing(true)
+    }
+  }, [startEditing]) // eslint-disable-line react-hooks/exhaustive-deps
   const [title, setTitle] = useState(action.title || '')
   const [description, setDescription] = useState(action.description || '')
-  const [actionType, setActionType] = useState(action.action_type || 'task')
   const [metadata, setMetadata] = useState(action.metadata || {})
   const [saving, setSaving] = useState(false)
 
-  const actionTypes = [
-    { id: 'task', icon: '☐', label: 'Task' },
-    { id: 'call', icon: '☏', label: 'Call' },
-    { id: 'email', icon: '✉', label: 'Email' },
-    { id: 'meeting', icon: '◎', label: 'Meeting' },
-    { id: 'contact', icon: '◉', label: 'Contact' },
-  ]
+  // All actions are Salesforce Tasks
+  const getIcon = () => '☐'
 
   // All possible metadata fields from AI extraction
   const metadataFields = [
@@ -47,34 +48,44 @@ const ActionCard = memo(({ action, onStatusChange, onEdit }) => {
     { key: 'email', label: 'Email', icon: '✉', placeholder: 'john@example.com', type: 'email' },
     { key: 'phone', label: 'Phone', icon: '☏', placeholder: '+1 234 567 8900', type: 'tel' },
     { key: 'company', label: 'Company', icon: '◈', placeholder: 'Acme Corp', type: 'text' },
-    { key: 'due_date', label: 'Due Date', icon: '◷', placeholder: '', type: 'date' },
+    { key: 'due_date', label: 'Due Date & Time', icon: '◷', placeholder: '', type: 'datetime-local' },
     { key: 'priority', label: 'Priority', icon: '⚑', placeholder: '', type: 'select', options: ['high', 'medium', 'low'] },
     { key: 'notes', label: 'Additional Notes', icon: '✎', placeholder: 'Extra context...', type: 'text' },
   ]
 
-  // Convert relative date strings to actual dates
-  const parseDueDate = (value) => {
+  // Convert relative date strings to actual datetime
+  const parseDueDateTime = (value) => {
     if (!value) return ''
-    // If already a date format, return as-is
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+    // If already a datetime-local format, return as-is
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return value
+    // If date only format, add default time (9:00 AM)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return `${value}T09:00`
     
     const today = new Date()
     const lowerValue = value.toLowerCase()
     
+    // Set default time to 9:00 AM
+    const formatDateTime = (date) => {
+      const yyyy = date.getFullYear()
+      const mm = String(date.getMonth() + 1).padStart(2, '0')
+      const dd = String(date.getDate()).padStart(2, '0')
+      return `${yyyy}-${mm}-${dd}T09:00`
+    }
+    
     if (lowerValue === 'today') {
-      return today.toISOString().split('T')[0]
+      return formatDateTime(today)
     }
     if (lowerValue === 'tomorrow') {
       today.setDate(today.getDate() + 1)
-      return today.toISOString().split('T')[0]
+      return formatDateTime(today)
     }
     if (lowerValue === 'next week') {
       today.setDate(today.getDate() + 7)
-      return today.toISOString().split('T')[0]
+      return formatDateTime(today)
     }
     if (lowerValue === 'next month') {
       today.setMonth(today.getMonth() + 1)
-      return today.toISOString().split('T')[0]
+      return formatDateTime(today)
     }
     
     // Try to parse day names
@@ -85,23 +96,35 @@ const ActionCard = memo(({ action, onStatusChange, onEdit }) => {
       let daysToAdd = dayIndex - currentDay
       if (daysToAdd <= 0) daysToAdd += 7 // Next occurrence
       today.setDate(today.getDate() + daysToAdd)
-      return today.toISOString().split('T')[0]
+      return formatDateTime(today)
     }
     
     return value // Return original if can't parse
   }
 
-  // Format date for display
-  const formatDateForDisplay = (value) => {
+  // Format datetime for display
+  const formatDateTimeForDisplay = (value) => {
     if (!value) return ''
+    // Handle datetime-local format
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) {
+      const date = new Date(value)
+      return date.toLocaleString('en-AU', { 
+        weekday: 'short', 
+        day: 'numeric', 
+        month: 'short', 
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      })
+    }
+    // Handle date-only format
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
       const date = new Date(value + 'T00:00:00')
       return date.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
     }
     return value
   }
-
-  const getIcon = (type) => actionTypes.find(t => t.id === type)?.icon || '◇'
   
   const getBadge = (status) => ({ 
     pending: 'badge-warning', 
@@ -135,11 +158,12 @@ const ActionCard = memo(({ action, onStatusChange, onEdit }) => {
       await onEdit(action.id, { 
         title, 
         description, 
-        action_type: actionType,
+        action_type: 'task', // Always task for Salesforce
         metadata: cleanedMetadata
       })
       setIsEditing(false)
-      toast.success('Action updated')
+      if (onClearEdit) onClearEdit(null)
+      toast.success('Task updated')
     } catch {
       toast.error('Error saving')
     } finally {
@@ -151,8 +175,17 @@ const ActionCard = memo(({ action, onStatusChange, onEdit }) => {
     setIsEditing(false)
     setTitle(action.title || '')
     setDescription(action.description || '')
-    setActionType(action.action_type || 'task')
     setMetadata(action.metadata || {})
+    if (onClearEdit) onClearEdit(null)
+  }
+
+  const handleEditClick = () => {
+    if (compact && onNavigateToEdit) {
+      // In compact mode, navigate to Actions page
+      onNavigateToEdit(action.id)
+    } else {
+      setIsEditing(!isEditing)
+    }
   }
 
   const canEdit = action.status === 'approved' || action.status === 'pending'
@@ -162,7 +195,7 @@ const ActionCard = memo(({ action, onStatusChange, onEdit }) => {
     <div className="card p-5">
       <div className="flex items-start gap-4">
         <div className="w-10 h-10 rounded-xl bg-spratt-blue-50 flex items-center justify-center text-spratt-blue text-lg flex-shrink-0">
-          {getIcon(action.action_type)}
+          {getIcon()}
         </div>
         
         <div className="flex-1 min-w-0">
@@ -176,7 +209,7 @@ const ActionCard = memo(({ action, onStatusChange, onEdit }) => {
               <span className="text-xs text-slate-400">{formatTime(action.created_at)}</span>
               {canEdit && (
                 <button
-                  onClick={() => setIsEditing(!isEditing)}
+                  onClick={handleEditClick}
                   className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                   title="Edit"
                 >
@@ -191,6 +224,13 @@ const ActionCard = memo(({ action, onStatusChange, onEdit }) => {
           {/* Edit form */}
           {isEditing ? (
             <div className="p-4 bg-slate-50 rounded-xl space-y-4 animate-in">
+              {/* Task badge */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs px-2 py-1 bg-spratt-blue-50 text-spratt-blue rounded font-medium">
+                  ☐ Salesforce Task
+                </span>
+              </div>
+              
               {/* Title */}
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Title</label>
@@ -199,32 +239,8 @@ const ActionCard = memo(({ action, onStatusChange, onEdit }) => {
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   className="input py-2 text-sm"
-                  placeholder="Action title..."
+                  placeholder="Task title..."
                 />
-              </div>
-              
-              {/* Type */}
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Type</label>
-                <div className="flex flex-wrap gap-2">
-                  {actionTypes.map(type => (
-                    <button
-                      key={type.id}
-                      onClick={() => setActionType(type.id)}
-                      className={`
-                        flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
-                        transition-colors duration-100
-                        ${actionType === type.id 
-                          ? 'bg-spratt-blue text-white' 
-                          : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                        }
-                      `}
-                    >
-                      <span>{type.icon}</span>
-                      <span>{type.label}</span>
-                    </button>
-                  ))}
-                </div>
               </div>
               
               {/* Description */}
@@ -251,17 +267,17 @@ const ActionCard = memo(({ action, onStatusChange, onEdit }) => {
                         <span className="opacity-60">{field.icon}</span>
                         {field.label}
                       </label>
-                      {field.type === 'date' ? (
+                      {field.type === 'datetime-local' ? (
                         <div className="relative">
                           <input
-                            type="date"
-                            value={parseDueDate(metadata[field.key]) || ''}
+                            type="datetime-local"
+                            value={parseDueDateTime(metadata[field.key]) || ''}
                             onChange={e => updateMetadata(field.key, e.target.value)}
                             className="input py-2 text-sm w-full"
                           />
-                          {metadata[field.key] && !/^\d{4}-\d{2}-\d{2}$/.test(metadata[field.key]) && (
+                          {metadata[field.key] && !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(metadata[field.key]) && (
                             <p className="text-xs text-slate-400 mt-1">
-                              Original: "{metadata[field.key]}" → {formatDateForDisplay(parseDueDate(metadata[field.key]))}
+                              Original: "{metadata[field.key]}" → {formatDateTimeForDisplay(parseDueDateTime(metadata[field.key]))}
                             </p>
                           )}
                         </div>
@@ -337,7 +353,7 @@ const ActionCard = memo(({ action, onStatusChange, onEdit }) => {
                   )}
                   {action.metadata.due_date && (
                     <span className="text-xs px-2.5 py-1 bg-spratt-blue-50 text-spratt-blue rounded-lg">
-                      ◷ {formatDateForDisplay(action.metadata.due_date)}
+                      ◷ {formatDateTimeForDisplay(action.metadata.due_date)}
                     </span>
                   )}
                   {action.metadata.priority && (
@@ -425,7 +441,7 @@ const ActionCard = memo(({ action, onStatusChange, onEdit }) => {
 
 ActionCard.displayName = 'ActionCard'
 
-export const ActionsList = memo(({ filter: externalFilter, onFilterChange, limit, compact }) => {
+export const ActionsList = memo(({ filter: externalFilter, onFilterChange, limit, compact, onNavigateToEdit, editingActionId, onClearEdit }) => {
   useAuth() // Verify user is authenticated
   const [actions, setActions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -538,6 +554,10 @@ export const ActionsList = memo(({ filter: externalFilter, onFilterChange, limit
               action={action} 
               onStatusChange={handleStatusChange}
               onEdit={handleEdit}
+              compact={compact}
+              onNavigateToEdit={onNavigateToEdit}
+              startEditing={editingActionId === action.id}
+              onClearEdit={onClearEdit}
             />
           ))}
         </div>
