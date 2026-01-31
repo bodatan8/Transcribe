@@ -7,9 +7,9 @@ import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react'
 const commands = [
   { id: 'record', icon: '●', label: 'Start recording', shortcut: 'R', category: 'Actions' },
   { id: 'stop', icon: '■', label: 'Stop recording', shortcut: 'S', category: 'Actions' },
-  { id: 'view-dashboard', icon: '◉', label: 'Go to Dashboard', shortcut: '1', category: 'Navigation' },
+  { id: 'view-dashboard', icon: '⌂', label: 'Go to Dashboard', shortcut: '1', category: 'Navigation' },
   { id: 'view-recordings', icon: '◎', label: 'Go to Recordings', shortcut: '2', category: 'Navigation' },
-  { id: 'view-actions', icon: '☐', label: 'Go to Actions', shortcut: '3', category: 'Navigation' },
+  { id: 'view-actions', icon: '✓', label: 'Go to Actions', shortcut: '3', category: 'Navigation' },
   { id: 'filter-pending', icon: '◷', label: 'Filter: Pending', category: 'Filters' },
   { id: 'filter-approved', icon: '✓', label: 'Filter: Approved', category: 'Filters' },
   { id: 'filter-all', icon: '◇', label: 'Filter: All', category: 'Filters' },

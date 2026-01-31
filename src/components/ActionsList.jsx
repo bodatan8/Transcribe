@@ -450,7 +450,7 @@ export const ActionsList = memo(({ filter: externalFilter, onFilterChange, limit
 
       {actions.length === 0 ? (
         <div className="card p-12 text-center">
-          <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-slate-100 flex items-center justify-center text-2xl opacity-40">☐</div>
+          <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-slate-100 flex items-center justify-center text-2xl opacity-40">✓</div>
           <p className="text-slate-900 font-medium mb-1">No actions</p>
           <p className="text-sm text-slate-500">{filter === 'pending' ? 'Record audio to extract actions' : 'Nothing matches this filter'}</p>
         </div>

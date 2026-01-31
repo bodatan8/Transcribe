@@ -57,9 +57,9 @@ export const Sidebar = memo(({ activeView, onViewChange, pendingActionsCount = 0
   }, [])
 
   const navItems = [
-    { id: 'dashboard', icon: '◉', label: 'Dashboard' },
+    { id: 'dashboard', icon: '⌂', label: 'Dashboard' },
     { id: 'recordings', icon: '◎', label: 'Recordings' },
-    { id: 'actions', icon: '☐', label: 'Actions', badge: pendingActionsCount > 0 ? pendingActionsCount : null },
+    { id: 'actions', icon: '✓', label: 'Actions', badge: pendingActionsCount > 0 ? pendingActionsCount : null },
   ]
 
   return (
