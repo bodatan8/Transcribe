@@ -43,7 +43,7 @@ async function checkDatabaseSchema() {
   
   try {
     // Check if profiles table exists
-    const { data: profiles, error: profilesError } = await supabaseAdmin
+    const { error: profilesError } = await supabaseAdmin
       .from('profiles')
       .select('id')
       .limit(1)
@@ -73,7 +73,7 @@ async function createStorageBucket() {
 
   try {
     // Try to access the bucket directly to see if it exists
-    const { data: testList, error: testError } = await supabaseAdmin.storage.from(bucketName).list('', { limit: 1 })
+    const { error: testError } = await supabaseAdmin.storage.from(bucketName).list('', { limit: 1 })
     
     if (!testError) {
       console.log(`   ✓ Bucket "${bucketName}" already exists and is accessible`)
@@ -125,7 +125,7 @@ async function setupStoragePolicies() {
   try {
     // Note: Storage policies are typically set via SQL, but we can verify they exist
     // For now, we'll just confirm the bucket is accessible
-    const { data, error } = await supabaseAdmin.storage.from('recordings').list('', {
+    const { error } = await supabaseAdmin.storage.from('recordings').list('', {
       limit: 1
     })
 

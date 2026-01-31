@@ -6,7 +6,7 @@ const OPENAI_ENDPOINT = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT
 const OPENAI_KEY = import.meta.env.VITE_AZURE_OPENAI_KEY
 const OPENAI_DEPLOYMENT = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT || 'gpt-4o'
 
-export const extractActionsFromTranscript = async (transcript, userId) => {
+export const extractActionsFromTranscript = async (transcript) => {
   if (!transcript || transcript.trim().length === 0) {
     return []
   }
@@ -178,20 +178,6 @@ const extractDate = (text) => {
   return null
 }
 
-/**
- * Check if word is too common to be a task
- */
-const isCommonWord = (word) => {
-  const commonWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by']
-  return commonWords.includes(word.toLowerCase())
-}
-
-/**
- * Capitalize first letter
- */
-const capitalizeFirst = (str) => {
-  return str.charAt(0).toUpperCase() + str.slice(1)
-}
 
 /**
  * Validate action structure

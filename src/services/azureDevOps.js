@@ -36,20 +36,6 @@ export const createWorkItem = async (action) => {
   }
 }
 
-/**
- * Map action type to Azure DevOps work item type
- */
-const mapActionTypeToWorkItemType = (actionType) => {
-  const mapping = {
-    call: 'Task',
-    email: 'Task',
-    meeting: 'Task',
-    task: 'Task',
-    contact: 'Task',
-    other: 'Task',
-  }
-  return mapping[actionType] || 'Task'
-}
 
 /**
  * Update work item status

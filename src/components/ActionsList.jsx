@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, memo } from 'react'
 import { supabase } from '../lib/supabase'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import { syncActionToAzureDevOps } from '../services/azureDevOps'
 import toast from 'react-hot-toast'
 
@@ -81,7 +81,7 @@ const ActionCard = memo(({ action, onStatusChange, onEdit }) => {
     try {
       // Clean empty metadata values
       const cleanedMetadata = Object.fromEntries(
-        Object.entries(metadata).filter(([_, v]) => v && v.trim())
+        Object.entries(metadata).filter(([, v]) => v && v.trim())
       )
       await onEdit(action.id, { 
         title, 
@@ -108,10 +108,6 @@ const ActionCard = memo(({ action, onStatusChange, onEdit }) => {
 
   const canEdit = action.status === 'approved' || action.status === 'pending'
 
-  // Get existing metadata keys + empty ones for new fields
-  const activeMetadataFields = metadataFields.filter(f => 
-    metadata[f.key] || isEditing
-  )
 
   return (
     <div className="card p-5">
@@ -354,7 +350,7 @@ const ActionCard = memo(({ action, onStatusChange, onEdit }) => {
 ActionCard.displayName = 'ActionCard'
 
 export const ActionsList = memo(({ filter: externalFilter, onFilterChange, limit, compact }) => {
-  const { user } = useAuth()
+  useAuth() // Verify user is authenticated
   const [actions, setActions] = useState([])
   const [loading, setLoading] = useState(true)
   const [internalFilter, setInternalFilter] = useState('pending')
@@ -399,7 +395,7 @@ export const ActionsList = memo(({ filter: externalFilter, onFilterChange, limit
       await supabase.from('actions').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', actionId)
 
       if (newStatus === 'approved' && action) {
-        try { await syncActionToAzureDevOps({ ...action, status: newStatus }) } catch {}
+        try { await syncActionToAzureDevOps({ ...action, status: newStatus }) } catch { /* Azure DevOps sync optional */ }
       }
       
       const messages = { approved: 'Approved', rejected: 'Rejected', completed: 'Completed', pending: 'Moved to pending' }

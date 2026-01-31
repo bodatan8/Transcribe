@@ -1,9 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
-import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { AuthProvider } from './contexts/AuthContext'
+import { useAuth } from './hooks/useAuth'
 import { Login } from './components/Login'
 import { Dashboard } from './components/Dashboard'
 import { ToastProvider } from './components/Toast'
-import { CommandPalette, useCommandPalette } from './components/CommandPalette'
+import { CommandPalette } from './components/CommandPalette'
+import { useCommandPalette } from './hooks/useCommandPalette'
 import { initSyncService } from './services/syncService'
 import './App.css'
 

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, memo } from 'react'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import { saveRecordingLocally } from '../services/offlineStorage'
 import { syncPendingRecordings, isOnline, addSyncListener } from '../services/syncService'
 import { Waveform } from './Waveform'
@@ -23,51 +23,13 @@ export const AudioRecorder = memo(({ triggerRecord }) => {
   const streamRef = useRef(null)
   const audioContextRef = useRef(null)
 
-  useEffect(() => {
-    if (triggerRecord && !isRecording && !isProcessing) {
-      startRecording()
-    }
-  }, [triggerRecord])
+  // Store refs for current state to avoid stale closures in effects
+  const isRecordingRef = useRef(isRecording)
+  const isProcessingRef = useRef(isProcessing)
+  isRecordingRef.current = isRecording
+  isProcessingRef.current = isProcessing
 
-  useEffect(() => {
-    const handleOnline = () => {
-      setIsOnlineStatus(true)
-      syncPendingRecordings()
-    }
-    const handleOffline = () => setIsOnlineStatus(false)
-
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-
-    const removeListener = addSyncListener((status) => {
-      setPendingUploads(status.pendingCount || 0)
-    })
-
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-      removeListener()
-    }
-  }, [])
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
-      
-      if (e.key === 'r' && !isRecording && !isProcessing) {
-        e.preventDefault()
-        startRecording()
-      }
-      if ((e.key === 's' || e.key === 'Escape') && isRecording) {
-        e.preventDefault()
-        stopRecording()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isRecording, isProcessing])
-
+  // Define recording functions first
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -141,7 +103,7 @@ export const AudioRecorder = memo(({ triggerRecord }) => {
   }, [user, recordingTime])
 
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && isRecording) {
+    if (mediaRecorderRef.current && isRecordingRef.current) {
       mediaRecorderRef.current.stop()
       setIsRecording(false)
       if (timerRef.current) {
@@ -149,7 +111,61 @@ export const AudioRecorder = memo(({ triggerRecord }) => {
         timerRef.current = null
       }
     }
-  }, [isRecording])
+  }, [])
+
+  // Store refs for functions to use in effects
+  const startRecordingRef = useRef(startRecording)
+  const stopRecordingRef = useRef(stopRecording)
+  startRecordingRef.current = startRecording
+  stopRecordingRef.current = stopRecording
+
+  // Handle external trigger
+  useEffect(() => {
+    if (triggerRecord && !isRecordingRef.current && !isProcessingRef.current) {
+      startRecordingRef.current()
+    }
+  }, [triggerRecord])
+
+  // Online/offline listeners
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnlineStatus(true)
+      syncPendingRecordings()
+    }
+    const handleOffline = () => setIsOnlineStatus(false)
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
+    const removeListener = addSyncListener((status) => {
+      setPendingUploads(status.pendingCount || 0)
+    })
+
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+      removeListener()
+    }
+  }, [])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      
+      if (e.key === 'r' && !isRecordingRef.current && !isProcessingRef.current) {
+        e.preventDefault()
+        startRecordingRef.current()
+      }
+      if ((e.key === 's' || e.key === 'Escape') && isRecordingRef.current) {
+        e.preventDefault()
+        stopRecordingRef.current()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60)

@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback, memo } from 'react'
+import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react'
 
 /**
- * Optimized Command Palette
+ * Command Palette
  */
 
 const commands = [
@@ -42,58 +42,72 @@ export const CommandPalette = memo(({ isOpen, onClose, onCommand }) => {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef(null)
 
-  const filteredCommands = query === ''
-    ? commands
-    : commands.filter(cmd => cmd.label.toLowerCase().includes(query.toLowerCase()))
+  const filteredCommands = useMemo(() => 
+    query === ''
+      ? commands
+      : commands.filter(cmd => cmd.label.toLowerCase().includes(query.toLowerCase())),
+    [query]
+  )
 
-  const groupedCommands = filteredCommands.reduce((acc, cmd) => {
-    if (!acc[cmd.category]) acc[cmd.category] = []
-    acc[cmd.category].push(cmd)
-    return acc
-  }, {})
+  const groupedCommands = useMemo(() => 
+    filteredCommands.reduce((acc, cmd) => {
+      if (!acc[cmd.category]) acc[cmd.category] = []
+      acc[cmd.category].push(cmd)
+      return acc
+    }, {}),
+    [filteredCommands]
+  )
 
+  // Reset state and focus when opening
+  // This pattern is intentional - resetting state when modal opens is valid
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (isOpen) {
-      inputRef.current?.focus()
       setQuery('')
       setSelectedIndex(0)
+      // Focus after a small delay to ensure the input is rendered
+      const timer = setTimeout(() => inputRef.current?.focus(), 0)
+      return () => clearTimeout(timer)
     }
   }, [isOpen])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
-  useEffect(() => {
+  // Handle query changes - reset selection
+  const handleQueryChange = useCallback((newQuery) => {
+    setQuery(newQuery)
     setSelectedIndex(0)
-  }, [query])
-
-  const handleKeyDown = useCallback((e) => {
-    if (!isOpen) return
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault()
-        setSelectedIndex(i => Math.min(i + 1, filteredCommands.length - 1))
-        break
-      case 'ArrowUp':
-        e.preventDefault()
-        setSelectedIndex(i => Math.max(i - 1, 0))
-        break
-      case 'Enter':
-        e.preventDefault()
-        if (filteredCommands[selectedIndex]) {
-          onCommand(filteredCommands[selectedIndex].id)
-          onClose()
-        }
-        break
-      case 'Escape':
-        e.preventDefault()
-        onClose()
-        break
-    }
-  }, [isOpen, filteredCommands, selectedIndex, onCommand, onClose])
+  }, [])
 
   useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!isOpen) return
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault()
+          setSelectedIndex(i => Math.min(i + 1, filteredCommands.length - 1))
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          setSelectedIndex(i => Math.max(i - 1, 0))
+          break
+        case 'Enter':
+          e.preventDefault()
+          if (filteredCommands[selectedIndex]) {
+            onCommand(filteredCommands[selectedIndex].id)
+            onClose()
+          }
+          break
+        case 'Escape':
+          e.preventDefault()
+          onClose()
+          break
+      }
+    }
+
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleKeyDown])
+  }, [isOpen, filteredCommands, selectedIndex, onCommand, onClose])
 
   if (!isOpen) return null
 
@@ -115,7 +129,7 @@ export const CommandPalette = memo(({ isOpen, onClose, onCommand }) => {
             ref={inputRef}
             type="text"
             value={query}
-            onChange={e => setQuery(e.target.value)}
+            onChange={e => handleQueryChange(e.target.value)}
             placeholder="Search commands..."
             className="flex-1 text-base bg-transparent outline-none"
           />
@@ -166,21 +180,3 @@ export const CommandPalette = memo(({ isOpen, onClose, onCommand }) => {
 })
 
 CommandPalette.displayName = 'CommandPalette'
-
-export const useCommandPalette = () => {
-  const [isOpen, setIsOpen] = useState(false)
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setIsOpen(prev => !prev)
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
-
-  return { isOpen, setIsOpen, close: () => setIsOpen(false) }
-}

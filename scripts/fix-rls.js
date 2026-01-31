@@ -25,21 +25,6 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const projectRef = supabaseUrl.replace('https://', '').split('.')[0]
 console.log(`Project: ${projectRef}`)
 
-async function executeSql(sql) {
-  const response = await fetch(`${supabaseUrl}/rest/v1/`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': supabaseServiceKey,
-      'Authorization': `Bearer ${supabaseServiceKey}`,
-      'Prefer': 'return=representation'
-    },
-    body: JSON.stringify({ query: sql })
-  })
-  
-  return response
-}
-
 async function fixRLS() {
   console.log('🔧 Fixing RLS recursion issue...\n')
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, memo } from 'react'
 import { supabase } from '../lib/supabase'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import { StaticWaveform } from './Waveform'
 import toast from 'react-hot-toast'
 
@@ -210,7 +210,7 @@ const RecordingCard = memo(({ recording, isExpanded, onToggle, onEdit, onRetrans
 RecordingCard.displayName = 'RecordingCard'
 
 export const RecordingsList = memo(({ limit, compact }) => {
-  const { user } = useAuth()
+  useAuth() // Verify user is authenticated
   const [recordings, setRecordings] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState(null)

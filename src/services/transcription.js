@@ -10,7 +10,7 @@ export const uploadAndTranscribe = async (audioBlob, userId) => {
     const filename = `${userId}/${Date.now()}-${Math.random().toString(36).substring(7)}.webm`
     
     // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('recordings')
       .upload(filename, audioBlob, {
         contentType: 'audio/webm',
@@ -116,7 +116,7 @@ const extractActions = async (recordingId, transcript) => {
     const { extractActionsFromTranscript } = await import('./actionExtraction')
     
     // Extract actions from the actual transcript
-    const extractedActions = await extractActionsFromTranscript(transcript, recording.user_id)
+    const extractedActions = await extractActionsFromTranscript(transcript)
 
     if (extractedActions.length === 0) {
       console.log('No actions extracted from transcript')
@@ -143,14 +143,3 @@ const extractActions = async (recordingId, transcript) => {
   }
 }
 
-/**
- * Real transcription using OpenAI Whisper API (for production)
- */
-export const transcribeWithOpenAI = async (audioBlob) => {
-  // This would be implemented with actual OpenAI API call
-  // For now, return mock data
-  return {
-    text: 'Mock transcription text',
-    language: 'en',
-  }
-}
