@@ -1,0 +1,11 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "SUPABASE_URL": "https://civndwyeavngmapymgju.supabase.co",
+    "SUPABASE_SERVICE_KEY": "sb_secret_zM-F_G8a_OEf8WHxqHlOLw_OOpFVZYI",
+    "AZURE_SPEECH_KEY": "cce8e8be12ae41578589b636575146c5",
+    "AZURE_SPEECH_REGION": "australiaeast"
+  }
+}
