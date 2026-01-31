@@ -28,7 +28,11 @@ export const transcribeWithAzureSpeech = async (audioBlob) => {
     const formData = new FormData()
     formData.append('audio', audioBlob, 'recording.webm')
     formData.append('definition', JSON.stringify({
-      locales: ['en-AU', 'en-US'] // Support Australian and US English
+      locales: ['en-AU', 'en-US'], // Support Australian and US English
+      diarization: {
+        enabled: true,
+        maxSpeakers: 4 // Support up to 4 speakers in the conversation
+      }
     }))
     
     const response = await fetch(url, {
@@ -55,30 +59,56 @@ export const transcribeWithAzureSpeech = async (audioBlob) => {
     const result = await response.json()
     console.log('Azure Fast Transcription result:', JSON.stringify(result, null, 2))
 
-    // Fast Transcription API returns combinedPhrases with full text
-    if (result.combinedPhrases && result.combinedPhrases.length > 0) {
-      const fullText = result.combinedPhrases[0].text || ''
-      const confidence = result.phrases?.[0]?.confidence || 0.9
+    // Fast Transcription API returns phrases with speaker info when diarization is enabled
+    if (result.phrases && result.phrases.length > 0) {
+      // Check if diarization data is present (speaker field in phrases)
+      const hasSpeakers = result.phrases.some(p => p.speaker !== undefined)
       
-      console.log('Transcription:', fullText)
-      
-      return {
-        text: fullText,
-        confidence: confidence,
-        words: result.phrases?.flatMap(p => p.words || []) || []
+      let formattedText = ''
+      if (hasSpeakers) {
+        // Format with speaker labels
+        let currentSpeaker = null
+        const segments = []
+        
+        for (const phrase of result.phrases) {
+          const speaker = phrase.speaker !== undefined ? `Speaker ${phrase.speaker + 1}` : null
+          
+          if (speaker && speaker !== currentSpeaker) {
+            currentSpeaker = speaker
+            segments.push(`\n\n**${speaker}:** ${phrase.text}`)
+          } else {
+            segments.push(phrase.text)
+          }
+        }
+        
+        formattedText = segments.join(' ').trim()
+      } else {
+        // No diarization - use combined phrases or join all
+        formattedText = result.combinedPhrases?.[0]?.text || result.phrases.map(p => p.text).join(' ')
       }
-    } else if (result.phrases && result.phrases.length > 0) {
-      // Fallback to phrases if combinedPhrases not available
-      const fullText = result.phrases.map(p => p.text).join(' ')
+      
+      console.log('Transcription with speakers:', formattedText)
+      
+      return {
+        text: formattedText,
+        confidence: result.phrases[0]?.confidence || 0.9,
+        words: result.phrases.flatMap(p => p.words || []),
+        hasSpeakers: hasSpeakers,
+        speakerCount: hasSpeakers ? new Set(result.phrases.map(p => p.speaker)).size : 1
+      }
+    } else if (result.combinedPhrases && result.combinedPhrases.length > 0) {
+      const fullText = result.combinedPhrases[0].text || ''
       
       return {
         text: fullText,
-        confidence: result.phrases[0]?.confidence || 0.9,
-        words: result.phrases.flatMap(p => p.words || [])
+        confidence: 0.9,
+        words: [],
+        hasSpeakers: false,
+        speakerCount: 1
       }
     } else {
       console.log('No speech detected in audio')
-      return { text: '', confidence: 0, words: [] }
+      return { text: '', confidence: 0, words: [], hasSpeakers: false, speakerCount: 0 }
     }
   } catch (error) {
     console.error('Error transcribing with Azure Fast Transcription:', error)

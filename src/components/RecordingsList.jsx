@@ -291,6 +291,14 @@ const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdi
         </div>
       )}
 
+      {/* Actions created indicator */}
+      {actionsCount > 0 && recording.transcription_status === 'completed' && (
+        <div className="flex items-center gap-2 text-sm text-emerald-600 mb-3 bg-emerald-50 px-3 py-2 rounded-lg">
+          <span className="text-emerald-500">✓</span>
+          <span className="font-medium">{actionsCount} Action{actionsCount !== 1 ? 's' : ''} & Minutes created from transcript</span>
+        </div>
+      )}
+
       {/* Toggle buttons */}
       <div className="flex flex-wrap gap-4">
         {/* Transcription toggle */}
@@ -316,10 +324,14 @@ const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdi
         )}
       </div>
 
-      {/* Expanded transcription */}
+      {/* Expanded transcription - supports speaker diarization format */}
       {isTranscriptionExpanded && recording.transcription && (
-        <div className="mt-3 p-4 bg-slate-50 rounded-xl text-sm text-slate-700 leading-relaxed animate-in">
-          {recording.transcription}
+        <div className="mt-3 p-4 bg-slate-50 rounded-xl text-sm text-slate-700 leading-relaxed animate-in whitespace-pre-wrap">
+          {recording.transcription.split(/\*\*([^*]+)\*\*/).map((part, i) => 
+            i % 2 === 1 
+              ? <strong key={i} className="text-spratt-blue">{part}</strong>
+              : part
+          )}
         </div>
       )}
 
