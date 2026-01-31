@@ -26,7 +26,7 @@ const RecordingSkeleton = memo(() => (
 
 RecordingSkeleton.displayName = 'RecordingSkeleton'
 
-const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdit, onRetranscribe, actions }) => {
+const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdit, onRetranscribe, actions, onNavigateToAction }) => {
   const [isEditing, setIsEditing] = useState(false)
   const [title, setTitle] = useState(recording.title || '')
   const [notes, setNotes] = useState(recording.notes || '')
@@ -323,17 +323,16 @@ const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdi
         </div>
       )}
 
-      {/* Expanded actions */}
+      {/* Expanded actions - clickable to navigate */}
       {isActionsExpanded && actionsCount > 0 && (
         <div className="mt-3 space-y-2 animate-in">
           {recordingActions.map(action => (
-            <div key={action.id} className="p-3 bg-slate-50 rounded-xl">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-spratt-blue-50 flex items-center justify-center text-spratt-blue text-sm flex-shrink-0">
-                  {action.action_type === 'call' ? '☏' : 
-                   action.action_type === 'email' ? '✉' : 
-                   action.action_type === 'meeting' ? '◎' : '✓'}
-                </div>
+            <button
+              key={action.id}
+              onClick={() => onNavigateToAction && onNavigateToAction(action.id)}
+              className="w-full p-3 bg-slate-50 rounded-xl text-left hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-medium text-slate-900 text-sm">{action.title}</span>
@@ -346,18 +345,21 @@ const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdi
                     </span>
                   </div>
                   {action.metadata && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {action.metadata.contact && (
-                        <span className="text-xs px-2 py-0.5 bg-white rounded text-slate-600">◉ {action.metadata.contact}</span>
-                      )}
-                      {action.metadata.due_date && (
-                        <span className="text-xs px-2 py-0.5 bg-spratt-blue-50 rounded text-spratt-blue">◷ {formatDueDate(action.metadata.due_date)}</span>
-                      )}
+                    <div className="text-xs text-slate-500">
+                      {[
+                        action.metadata.contact,
+                        action.metadata.account || action.metadata.company,
+                        action.metadata.due_date ? formatDueDate(action.metadata.due_date) : null,
+                        action.metadata.priority
+                      ].filter(Boolean).join(' · ')}
                     </div>
                   )}
                 </div>
+                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+                </svg>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -367,7 +369,7 @@ const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdi
 
 RecordingCard.displayName = 'RecordingCard'
 
-export const RecordingsList = memo(({ limit, compact }) => {
+export const RecordingsList = memo(({ limit, compact, onNavigateToAction }) => {
   useAuth() // Verify user is authenticated
   const [recordings, setRecordings] = useState([])
   const [actions, setActions] = useState([])
@@ -488,6 +490,7 @@ export const RecordingsList = memo(({ limit, compact }) => {
               onToggleSection={handleToggleSection}
               onEdit={handleEdit}
               onRetranscribe={handleRetranscribe}
+              onNavigateToAction={onNavigateToAction}
             />
           ))}
         </div>

@@ -86,7 +86,7 @@ export const Dashboard = memo(({ activeView, onViewChange, triggerRecord, action
   const renderContent = () => {
     switch (activeView) {
       case 'recordings':
-        return <RecordingsList />
+        return <RecordingsList onNavigateToAction={handleNavigateToEdit} />
       case 'actions':
         return <ActionsList filter={actionFilter} onFilterChange={onActionFilterChange} editingActionId={editingActionId} onClearEdit={onEditAction} />
       case 'dashboard':
@@ -103,7 +103,7 @@ export const Dashboard = memo(({ activeView, onViewChange, triggerRecord, action
 
             <section>
               <SectionHeader title="Recent Recordings" action="View all" onAction={() => onViewChange('recordings')} />
-              <RecordingsList limit={3} compact />
+              <RecordingsList limit={3} compact onNavigateToAction={handleNavigateToEdit} />
             </section>
 
             {pendingActionsCount > 0 && (
