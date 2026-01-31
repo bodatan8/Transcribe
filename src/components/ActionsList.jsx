@@ -43,14 +43,63 @@ const ActionCard = memo(({ action, onStatusChange, onEdit }) => {
 
   // All possible metadata fields from AI extraction
   const metadataFields = [
-    { key: 'contact', label: 'Contact Name', icon: '◉', placeholder: 'John Smith' },
-    { key: 'email', label: 'Email', icon: '✉', placeholder: 'john@example.com' },
-    { key: 'phone', label: 'Phone', icon: '☏', placeholder: '+1 234 567 8900' },
-    { key: 'company', label: 'Company', icon: '◈', placeholder: 'Acme Corp' },
-    { key: 'due_date', label: 'Due Date', icon: '◷', placeholder: 'YYYY-MM-DD' },
-    { key: 'priority', label: 'Priority', icon: '⚑', placeholder: 'high / medium / low' },
-    { key: 'notes', label: 'Additional Notes', icon: '✎', placeholder: 'Extra context...' },
+    { key: 'contact', label: 'Contact Name', icon: '◉', placeholder: 'John Smith', type: 'text' },
+    { key: 'email', label: 'Email', icon: '✉', placeholder: 'john@example.com', type: 'email' },
+    { key: 'phone', label: 'Phone', icon: '☏', placeholder: '+1 234 567 8900', type: 'tel' },
+    { key: 'company', label: 'Company', icon: '◈', placeholder: 'Acme Corp', type: 'text' },
+    { key: 'due_date', label: 'Due Date', icon: '◷', placeholder: '', type: 'date' },
+    { key: 'priority', label: 'Priority', icon: '⚑', placeholder: '', type: 'select', options: ['high', 'medium', 'low'] },
+    { key: 'notes', label: 'Additional Notes', icon: '✎', placeholder: 'Extra context...', type: 'text' },
   ]
+
+  // Convert relative date strings to actual dates
+  const parseDueDate = (value) => {
+    if (!value) return ''
+    // If already a date format, return as-is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+    
+    const today = new Date()
+    const lowerValue = value.toLowerCase()
+    
+    if (lowerValue === 'today') {
+      return today.toISOString().split('T')[0]
+    }
+    if (lowerValue === 'tomorrow') {
+      today.setDate(today.getDate() + 1)
+      return today.toISOString().split('T')[0]
+    }
+    if (lowerValue === 'next week') {
+      today.setDate(today.getDate() + 7)
+      return today.toISOString().split('T')[0]
+    }
+    if (lowerValue === 'next month') {
+      today.setMonth(today.getMonth() + 1)
+      return today.toISOString().split('T')[0]
+    }
+    
+    // Try to parse day names
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+    const dayIndex = days.indexOf(lowerValue)
+    if (dayIndex !== -1) {
+      const currentDay = today.getDay()
+      let daysToAdd = dayIndex - currentDay
+      if (daysToAdd <= 0) daysToAdd += 7 // Next occurrence
+      today.setDate(today.getDate() + daysToAdd)
+      return today.toISOString().split('T')[0]
+    }
+    
+    return value // Return original if can't parse
+  }
+
+  // Format date for display
+  const formatDateForDisplay = (value) => {
+    if (!value) return ''
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const date = new Date(value + 'T00:00:00')
+      return date.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+    }
+    return value
+  }
 
   const getIcon = (type) => actionTypes.find(t => t.id === type)?.icon || '◇'
   
@@ -202,13 +251,40 @@ const ActionCard = memo(({ action, onStatusChange, onEdit }) => {
                         <span className="opacity-60">{field.icon}</span>
                         {field.label}
                       </label>
-                      <input
-                        type="text"
-                        value={metadata[field.key] || ''}
-                        onChange={e => updateMetadata(field.key, e.target.value)}
-                        className="input py-2 text-sm"
-                        placeholder={field.placeholder}
-                      />
+                      {field.type === 'date' ? (
+                        <div className="relative">
+                          <input
+                            type="date"
+                            value={parseDueDate(metadata[field.key]) || ''}
+                            onChange={e => updateMetadata(field.key, e.target.value)}
+                            className="input py-2 text-sm w-full"
+                          />
+                          {metadata[field.key] && !/^\d{4}-\d{2}-\d{2}$/.test(metadata[field.key]) && (
+                            <p className="text-xs text-slate-400 mt-1">
+                              Original: "{metadata[field.key]}" → {formatDateForDisplay(parseDueDate(metadata[field.key]))}
+                            </p>
+                          )}
+                        </div>
+                      ) : field.type === 'select' ? (
+                        <select
+                          value={metadata[field.key] || ''}
+                          onChange={e => updateMetadata(field.key, e.target.value)}
+                          className="input py-2 text-sm"
+                        >
+                          <option value="">Select {field.label.toLowerCase()}</option>
+                          {field.options.map(opt => (
+                            <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type={field.type}
+                          value={metadata[field.key] || ''}
+                          onChange={e => updateMetadata(field.key, e.target.value)}
+                          className="input py-2 text-sm"
+                          placeholder={field.placeholder}
+                        />
+                      )}
                     </div>
                   ))}
                 </div>
@@ -261,7 +337,7 @@ const ActionCard = memo(({ action, onStatusChange, onEdit }) => {
                   )}
                   {action.metadata.due_date && (
                     <span className="text-xs px-2.5 py-1 bg-spratt-blue-50 text-spratt-blue rounded-lg">
-                      ◷ {action.metadata.due_date}
+                      ◷ {formatDateForDisplay(action.metadata.due_date)}
                     </span>
                   )}
                   {action.metadata.priority && (

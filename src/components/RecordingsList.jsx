@@ -2,10 +2,11 @@ import { useEffect, useState, useCallback, memo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { StaticWaveform } from './Waveform'
+import { extractActionsFromTranscript } from '../services/actionExtraction'
 import toast from 'react-hot-toast'
 
 /**
- * Recordings List with edit and re-transcribe
+ * Recordings List with edit transcription, show actions, and re-extract
  */
 
 const RecordingSkeleton = memo(() => (
@@ -25,11 +26,17 @@ const RecordingSkeleton = memo(() => (
 
 RecordingSkeleton.displayName = 'RecordingSkeleton'
 
-const RecordingCard = memo(({ recording, isExpanded, onToggle, onEdit, onRetranscribe }) => {
+const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdit, onRetranscribe, actions }) => {
   const [isEditing, setIsEditing] = useState(false)
   const [title, setTitle] = useState(recording.title || '')
   const [notes, setNotes] = useState(recording.notes || '')
+  const [transcription, setTranscription] = useState(recording.transcription || '')
   const [saving, setSaving] = useState(false)
+  const [extracting, setExtracting] = useState(false)
+
+  // Get actions for this recording
+  const recordingActions = actions.filter(a => a.recording_id === recording.id)
+  const actionsCount = recordingActions.length
 
   const getBadge = (status) => ({ 
     pending: 'badge-warning', 
@@ -37,6 +44,16 @@ const RecordingCard = memo(({ recording, isExpanded, onToggle, onEdit, onRetrans
     completed: 'badge-success', 
     failed: 'badge-error' 
   }[status] || 'badge-neutral')
+
+  const getStatusSteps = () => {
+    const status = recording.transcription_status
+    if (status === 'pending') return { step: 1, text: 'Waiting to process...' }
+    if (status === 'processing') return { step: 2, text: 'Transcribing audio...' }
+    if (status === 'completed' && actionsCount === 0) return { step: 3, text: 'Transcription complete' }
+    if (status === 'completed' && actionsCount > 0) return { step: 4, text: `${actionsCount} action${actionsCount !== 1 ? 's' : ''} extracted` }
+    if (status === 'failed') return { step: 0, text: 'Transcription failed' }
+    return { step: 0, text: status }
+  }
   
   const formatTime = (date) => {
     const diff = Date.now() - new Date(date)
@@ -56,16 +73,47 @@ const RecordingCard = memo(({ recording, isExpanded, onToggle, onEdit, onRetrans
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  const handleSave = async () => {
+  const handleSave = async (andExtract = false) => {
     setSaving(true)
     try {
-      await onEdit(recording.id, { title, notes })
+      await onEdit(recording.id, { title, notes, transcription })
+      
+      if (andExtract && transcription) {
+        setExtracting(true)
+        toast.loading('Extracting actions...', { id: 'extract' })
+        
+        // Delete old actions for this recording
+        await supabase.from('actions').delete().eq('recording_id', recording.id)
+        
+        // Extract new actions
+        const extractedActions = await extractActionsFromTranscript(transcription)
+        
+        if (extractedActions.length > 0) {
+          const actionsToInsert = extractedActions.map(action => ({
+            recording_id: recording.id,
+            user_id: recording.user_id,
+            ...action,
+            status: 'pending',
+          }))
+          
+          await supabase.from('actions').insert(actionsToInsert)
+          toast.success(`${extractedActions.length} action${extractedActions.length !== 1 ? 's' : ''} extracted`, { id: 'extract' })
+        } else {
+          toast.success('No actions found in transcription', { id: 'extract' })
+        }
+        
+        setExtracting(false)
+      } else {
+        toast.success('Recording updated')
+      }
+      
       setIsEditing(false)
-      toast.success('Recording updated')
-    } catch {
-      toast.error('Error saving')
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Error saving', { id: 'extract' })
     } finally {
       setSaving(false)
+      setExtracting(false)
     }
   }
 
@@ -77,6 +125,10 @@ const RecordingCard = memo(({ recording, isExpanded, onToggle, onEdit, onRetrans
       toast.error('Error starting re-transcription')
     }
   }
+
+  const statusInfo = getStatusSteps()
+  const isTranscriptionExpanded = expandedSection === `transcription-${recording.id}`
+  const isActionsExpanded = expandedSection === `actions-${recording.id}`
 
   return (
     <div className="card p-5">
@@ -92,6 +144,11 @@ const RecordingCard = memo(({ recording, isExpanded, onToggle, onEdit, onRetrans
           {formatDuration(recording.duration) && (
             <span className="text-xs text-slate-400 tabular-nums">
               {formatDuration(recording.duration)}
+            </span>
+          )}
+          {actionsCount > 0 && (
+            <span className="text-xs px-2 py-0.5 bg-spratt-blue-50 text-spratt-blue rounded-full font-medium">
+              {actionsCount} action{actionsCount !== 1 ? 's' : ''}
             </span>
           )}
         </div>
@@ -126,7 +183,7 @@ const RecordingCard = memo(({ recording, isExpanded, onToggle, onEdit, onRetrans
         <h3 className="font-medium text-slate-900 mb-3">{recording.title}</h3>
       )}
 
-      {/* Edit form */}
+      {/* Edit form with transcription editing */}
       {isEditing && (
         <div className="mb-4 p-4 bg-slate-50 rounded-xl space-y-3 animate-in">
           <div>
@@ -145,20 +202,47 @@ const RecordingCard = memo(({ recording, isExpanded, onToggle, onEdit, onRetrans
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="Add notes or context..."
-              rows={3}
+              rows={2}
               className="input py-2 text-sm resize-none"
             />
           </div>
-          <div className="flex gap-2">
+          {recording.transcription && (
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Transcription
+                <span className="text-slate-400 font-normal ml-1">(edit to fix errors)</span>
+              </label>
+              <textarea
+                value={transcription}
+                onChange={e => setTranscription(e.target.value)}
+                placeholder="Transcription text..."
+                rows={4}
+                className="input py-2 text-sm resize-none font-mono"
+              />
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2 pt-1">
             <button
-              onClick={handleSave}
-              disabled={saving}
+              onClick={() => handleSave(false)}
+              disabled={saving || extracting}
               className="btn btn-primary text-sm py-2 px-4"
             >
-              {saving ? 'Saving...' : 'Save'}
+              {saving && !extracting ? 'Saving...' : 'Save'}
             </button>
+            {recording.transcription && (
+              <button
+                onClick={() => handleSave(true)}
+                disabled={saving || extracting}
+                className="btn btn-secondary text-sm py-2 px-4"
+              >
+                {extracting ? 'Extracting...' : 'Save & Re-extract Actions'}
+              </button>
+            )}
             <button
-              onClick={() => setIsEditing(false)}
+              onClick={() => {
+                setIsEditing(false)
+                setTranscription(recording.transcription || '')
+              }}
               className="btn btn-ghost text-sm py-2 px-4"
             >
               Cancel
@@ -177,30 +261,82 @@ const RecordingCard = memo(({ recording, isExpanded, onToggle, onEdit, onRetrans
         <StaticWaveform barCount={100} height={56} />
       </div>
 
-      {/* Processing indicator */}
+      {/* Status indicator */}
       {recording.transcription_status === 'processing' && (
-        <div className="flex items-center gap-2 text-sm text-spratt-blue">
+        <div className="flex items-center gap-2 text-sm text-spratt-blue mb-3">
           <div className="w-3 h-3 border-2 border-spratt-blue/30 border-t-spratt-blue rounded-full animate-spin" />
-          Transcribing...
+          {statusInfo.text}
         </div>
       )}
 
-      {/* Transcription toggle */}
-      {recording.transcription && (
-        <div>
+      {/* Toggle buttons */}
+      <div className="flex flex-wrap gap-4">
+        {/* Transcription toggle */}
+        {recording.transcription && (
           <button 
-            onClick={onToggle} 
+            onClick={() => onToggleSection(`transcription-${recording.id}`)} 
             className="text-sm font-medium text-spratt-blue hover:text-spratt-blue-700 flex items-center gap-1"
           >
-            <span className={`transition-transform duration-100 ${isExpanded ? 'rotate-90' : ''}`}>▸</span>
-            {isExpanded ? 'Hide' : 'Show'} transcription
+            <span className={`transition-transform duration-100 ${isTranscriptionExpanded ? 'rotate-90' : ''}`}>▸</span>
+            {isTranscriptionExpanded ? 'Hide' : 'Show'} transcription
           </button>
-          
-          {isExpanded && (
-            <div className="mt-3 p-4 bg-slate-50 rounded-xl text-sm text-slate-700 leading-relaxed animate-in">
-              {recording.transcription}
+        )}
+
+        {/* Actions toggle */}
+        {actionsCount > 0 && (
+          <button 
+            onClick={() => onToggleSection(`actions-${recording.id}`)} 
+            className="text-sm font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+          >
+            <span className={`transition-transform duration-100 ${isActionsExpanded ? 'rotate-90' : ''}`}>▸</span>
+            {isActionsExpanded ? 'Hide' : 'Show'} actions ({actionsCount})
+          </button>
+        )}
+      </div>
+
+      {/* Expanded transcription */}
+      {isTranscriptionExpanded && recording.transcription && (
+        <div className="mt-3 p-4 bg-slate-50 rounded-xl text-sm text-slate-700 leading-relaxed animate-in">
+          {recording.transcription}
+        </div>
+      )}
+
+      {/* Expanded actions */}
+      {isActionsExpanded && actionsCount > 0 && (
+        <div className="mt-3 space-y-2 animate-in">
+          {recordingActions.map(action => (
+            <div key={action.id} className="p-3 bg-slate-50 rounded-xl">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-spratt-blue-50 flex items-center justify-center text-spratt-blue text-sm flex-shrink-0">
+                  {action.action_type === 'call' ? '☏' : 
+                   action.action_type === 'email' ? '✉' : 
+                   action.action_type === 'meeting' ? '◎' : '✓'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-medium text-slate-900 text-sm">{action.title}</span>
+                    <span className={`badge text-[10px] ${
+                      action.status === 'pending' ? 'badge-warning' : 
+                      action.status === 'approved' ? 'badge-success' : 
+                      action.status === 'completed' ? 'badge-info' : 'badge-neutral'
+                    }`}>
+                      {action.status}
+                    </span>
+                  </div>
+                  {action.metadata && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {action.metadata.contact && (
+                        <span className="text-xs px-2 py-0.5 bg-white rounded text-slate-600">◉ {action.metadata.contact}</span>
+                      )}
+                      {action.metadata.due_date && (
+                        <span className="text-xs px-2 py-0.5 bg-spratt-blue-50 rounded text-spratt-blue">◷ {action.metadata.due_date}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          )}
+          ))}
         </div>
       )}
     </div>
@@ -212,20 +348,32 @@ RecordingCard.displayName = 'RecordingCard'
 export const RecordingsList = memo(({ limit, compact }) => {
   useAuth() // Verify user is authenticated
   const [recordings, setRecordings] = useState([])
+  const [actions, setActions] = useState([])
   const [loading, setLoading] = useState(true)
-  const [expandedId, setExpandedId] = useState(null)
+  const [expandedSection, setExpandedSection] = useState(null)
 
-  const fetchRecordings = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('recordings')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(limit || 20)
+      
+      // Fetch recordings and actions in parallel
+      const [recordingsResult, actionsResult] = await Promise.all([
+        supabase
+          .from('recordings')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(limit || 20),
+        supabase
+          .from('actions')
+          .select('*')
+          .order('created_at', { ascending: false })
+      ])
 
-      if (error) throw error
-      setRecordings(data || [])
+      if (recordingsResult.error) throw recordingsResult.error
+      if (actionsResult.error) throw actionsResult.error
+      
+      setRecordings(recordingsResult.data || [])
+      setActions(actionsResult.data || [])
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -234,20 +382,28 @@ export const RecordingsList = memo(({ limit, compact }) => {
   }, [limit])
 
   useEffect(() => {
-    fetchRecordings()
+    fetchData()
     
-    const subscription = supabase
+    const recordingsSubscription = supabase
       .channel('recordings_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'recordings' }, fetchRecordings)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'recordings' }, fetchData)
       .subscribe()
 
-    window.addEventListener('recordings-updated', fetchRecordings)
+    const actionsSubscription = supabase
+      .channel('actions_changes_recordings')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'actions' }, fetchData)
+      .subscribe()
+
+    window.addEventListener('recordings-updated', fetchData)
+    window.addEventListener('actions-updated', fetchData)
 
     return () => {
-      subscription.unsubscribe()
-      window.removeEventListener('recordings-updated', fetchRecordings)
+      recordingsSubscription.unsubscribe()
+      actionsSubscription.unsubscribe()
+      window.removeEventListener('recordings-updated', fetchData)
+      window.removeEventListener('actions-updated', fetchData)
     }
-  }, [fetchRecordings])
+  }, [fetchData])
 
   const handleEdit = useCallback(async (id, updates) => {
     await supabase
@@ -255,11 +411,10 @@ export const RecordingsList = memo(({ limit, compact }) => {
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id)
     
-    fetchRecordings()
-  }, [fetchRecordings])
+    fetchData()
+  }, [fetchData])
 
   const handleRetranscribe = useCallback(async (id) => {
-    // Update status to processing to trigger re-transcription
     await supabase
       .from('recordings')
       .update({ 
@@ -268,11 +423,12 @@ export const RecordingsList = memo(({ limit, compact }) => {
       })
       .eq('id', id)
     
-    fetchRecordings()
-    
-    // In a real app, this would trigger the transcription service
-    // For now, we just update the status
-  }, [fetchRecordings])
+    fetchData()
+  }, [fetchData])
+
+  const handleToggleSection = useCallback((sectionId) => {
+    setExpandedSection(prev => prev === sectionId ? null : sectionId)
+  }, [])
 
   if (loading) {
     return (
@@ -305,8 +461,9 @@ export const RecordingsList = memo(({ limit, compact }) => {
             <RecordingCard
               key={recording.id}
               recording={recording}
-              isExpanded={expandedId === recording.id}
-              onToggle={() => setExpandedId(expandedId === recording.id ? null : recording.id)}
+              actions={actions}
+              expandedSection={expandedSection}
+              onToggleSection={handleToggleSection}
               onEdit={handleEdit}
               onRetranscribe={handleRetranscribe}
             />
