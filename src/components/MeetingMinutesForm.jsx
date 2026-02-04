@@ -372,23 +372,44 @@ export function MeetingMinutesForm({ recordingId, onClose }) {
   }).length
   const progress = Math.round((filledCount / requiredFields.length) * 100)
 
+  // Auto-generate minutes when form opens (same flow as task extraction)
   useEffect(() => {
-    async function loadData() {
+    async function loadAndGenerate() {
       try {
         const [rec, act] = await Promise.all([
           supabase.from('recordings').select('*').eq('id', recordingId).single(),
           supabase.from('actions').select('*').eq('recording_id', recordingId)
         ])
-        if (rec.data) setRecording(rec.data)
-        if (act.data) setActions(act.data)
-      } finally {
+        
+        const recordingData = rec.data
+        const actionsData = act.data || []
+        
+        if (recordingData) setRecording(recordingData)
+        if (actionsData) setActions(actionsData)
+        
+        // Auto-generate minutes if we have a transcript
+        if (recordingData?.transcription) {
+          setLoading(false)
+          setGenerating(true)
+          
+          const segs = recordingData?.metadata?.segments || []
+          const result = await generateMeetingMinutes(recordingData.transcription, actionsData, segs)
+          if (result) setMinutes(result)
+          
+          setGenerating(false)
+        } else {
+          setLoading(false)
+        }
+      } catch (error) {
+        console.error('Error loading minutes:', error)
         setLoading(false)
+        setGenerating(false)
       }
     }
-    if (recordingId) loadData()
+    if (recordingId) loadAndGenerate()
   }, [recordingId])
 
-  const handleGenerate = async () => {
+  const handleRegenerate = async () => {
     if (!recording?.transcription) return
     setGenerating(true)
     try {
@@ -446,12 +467,26 @@ export function MeetingMinutesForm({ recordingId, onClose }) {
     )
   }
 
+  // Show loading state while fetching data
   if (loading) {
     return (
       <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center z-50">
         <div className="bg-white rounded-2xl p-6 shadow-2xl flex items-center gap-3">
           <div className="w-5 h-5 border-2 border-teal-200 border-t-teal-600 rounded-full animate-spin" />
           <span className="text-stone-600 font-medium text-sm">Loading...</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Show generating state (auto-generates on open, same as task extraction)
+  if (generating && !hasMinutes) {
+    return (
+      <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="bg-white rounded-2xl p-8 shadow-2xl text-center max-w-sm">
+          <div className="w-12 h-12 mx-auto mb-4 border-3 border-teal-200 border-t-teal-600 rounded-full animate-spin" />
+          <h3 className="font-semibold text-stone-900 mb-1">Creating Meeting Minutes</h3>
+          <p className="text-sm text-stone-500">Analyzing transcript and extracting key information...</p>
         </div>
       </div>
     )
@@ -465,54 +500,41 @@ export function MeetingMinutesForm({ recordingId, onClose }) {
           <div className="flex items-center justify-between gap-4">
             {/* Left: Title + Progress */}
             <div className="flex items-center gap-4 min-w-0">
-              {hasMinutes && (
-                <div className="relative shrink-0">
-                  <ProgressRing progress={progress} />
-                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-stone-600">
-                    {progress}%
-                  </span>
-                </div>
-              )}
+              <div className="relative shrink-0">
+                <ProgressRing progress={progress} />
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-stone-600">
+                  {progress}%
+                </span>
+              </div>
               <div className="min-w-0">
                 <h1 className="text-lg font-bold text-stone-900 truncate">Meeting Minutes</h1>
                 <p className="text-xs text-stone-500">
-                  {hasMinutes ? `${filledCount}/${requiredFields.length} complete` : 'Generate from recording'}
+                  {`${filledCount}/${requiredFields.length} sections complete`}
                 </p>
               </div>
             </div>
             
-            {/* Right: Actions */}
+            {/* Right: Actions - Always show regenerate + export */}
             <div className="flex items-center gap-2 shrink-0">
-              {!hasMinutes ? (
-                <button
-                  onClick={handleGenerate}
-                  disabled={generating || !recording?.transcription}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 transition-colors disabled:opacity-50"
-                >
-                  {generating ? (
-                    <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Creating...</>
-                  ) : (
-                    <>✨ Generate</>
-                  )}
-                </button>
-              ) : (
-                <>
-                  <button 
-                    onClick={handleGenerate} 
-                    disabled={generating} 
-                    className="px-3 py-2 rounded-lg text-stone-600 hover:bg-stone-100 text-sm font-medium transition-colors"
-                  >
-                    {generating ? '...' : '↻'}
-                  </button>
-                  <button
-                    onClick={handleExportPDF}
-                    disabled={exporting}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-stone-900 text-white text-sm font-medium hover:bg-stone-800 transition-colors"
-                  >
-                    {exporting ? 'Exporting...' : '📄 Export PDF'}
-                  </button>
-                </>
-              )}
+              <button 
+                onClick={handleRegenerate} 
+                disabled={generating} 
+                className="px-3 py-2 rounded-lg text-stone-600 hover:bg-stone-100 text-sm font-medium transition-colors flex items-center gap-1.5"
+                title="Regenerate minutes"
+              >
+                {generating ? (
+                  <div className="w-3.5 h-3.5 border-2 border-stone-300 border-t-stone-600 rounded-full animate-spin" />
+                ) : (
+                  '↻'
+                )}
+              </button>
+              <button
+                onClick={handleExportPDF}
+                disabled={exporting || generating}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-stone-900 text-white text-sm font-medium hover:bg-stone-800 transition-colors disabled:opacity-50"
+              >
+                {exporting ? 'Exporting...' : '📄 Export PDF'}
+              </button>
               <button 
                 onClick={onClose}
                 className="p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-lg transition-colors ml-2"
@@ -531,15 +553,26 @@ export function MeetingMinutesForm({ recordingId, onClose }) {
         <div ref={formRef} className="max-w-4xl mx-auto px-6 py-8">
           
           {!hasMinutes ? (
-            /* Empty state */
+            /* Empty/error state - should rarely appear since we auto-generate */
             <div className="text-center py-20">
-              <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-teal-100 to-cyan-100 flex items-center justify-center text-3xl">
-                📝
+              <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center text-3xl">
+                ⚠️
               </div>
-              <h2 className="text-xl font-semibold text-stone-900 mb-2">Ready to create minutes?</h2>
-              <p className="text-stone-500 max-w-sm mx-auto text-sm">
-                Click &ldquo;Generate&rdquo; to create a structured summary from your recording. Everything is editable.
+              <h2 className="text-xl font-semibold text-stone-900 mb-2">Couldn&apos;t generate minutes</h2>
+              <p className="text-stone-500 max-w-sm mx-auto text-sm mb-4">
+                {!recording?.transcription 
+                  ? 'No transcript available for this recording.' 
+                  : 'Something went wrong. Try regenerating.'}
               </p>
+              {recording?.transcription && (
+                <button
+                  onClick={handleRegenerate}
+                  disabled={generating}
+                  className="px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 transition-colors"
+                >
+                  {generating ? 'Generating...' : 'Try Again'}
+                </button>
+              )}
             </div>
           ) : (
             <>
