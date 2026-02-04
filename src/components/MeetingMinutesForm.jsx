@@ -147,19 +147,17 @@ Return ONLY JSON.`
 }
 
 /**
- * Editable Field with warm, human design
+ * Compact, clean field component - 2026 minimal design
  */
-function EditableField({ field, data, onUpdate, actions, onCitationClick, highlightedQuote }) {
+function FormField({ field, data, onUpdate, actions, onCitationClick }) {
   const [isEditing, setIsEditing] = useState(false)
   const [localValue, setLocalValue] = useState('')
-  const [isHovered, setIsHovered] = useState(false)
   const inputRef = useRef(null)
   
   const value = data?.value ?? data ?? ''
   const isEmpty = !value || (Array.isArray(value) && value.length === 0)
   const citation = data?.citation || data?.citations
 
-  // Safe citation extraction
   const getCitationData = () => {
     if (!citation) return { text: '', timestamp: null }
     if (Array.isArray(citation)) {
@@ -187,160 +185,126 @@ function EditableField({ field, data, onUpdate, actions, onCitationClick, highli
     setIsEditing(false)
   }
 
-  const isCitationHighlighted = highlightedQuote && citationData.text && 
-    citationData.text.toLowerCase().includes(highlightedQuote.toLowerCase())
-
   return (
-    <div 
-      className={`group relative transition-all duration-300 ${isEditing ? 'z-10' : ''}`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {/* Card with warm gradient border on hover */}
-      <div className={`relative rounded-2xl transition-all duration-300 ${
-        isEditing 
-          ? 'bg-white shadow-xl shadow-amber-100 ring-2 ring-amber-400' 
-          : isEmpty && field.required
-            ? 'bg-gradient-to-br from-amber-50 to-orange-50 hover:shadow-md'
-            : 'bg-white hover:shadow-md'
-      } ${isHovered && !isEditing ? 'translate-y-[-2px]' : ''}`}>
-        
-        {/* Subtle gradient overlay for depth */}
-        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/80 to-transparent pointer-events-none" />
-        
-        <div className="relative p-5">
-          {/* Header */}
-          <div className="flex items-start gap-3 mb-3">
-            <span className="text-2xl">{field.icon}</span>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-stone-800">{field.title}</h3>
-                {field.required && !isEmpty && (
-                  <span className="text-emerald-500 text-sm">✓</span>
-                )}
-                {field.required && isEmpty && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Needs info</span>
-                )}
-              </div>
-              <p className="text-sm text-slate-500">{field.description}</p>
-            </div>
-            
-            {/* Edit button - appears on hover */}
-            {!isEditing && field.type !== 'actions' && (
-              <button
-                onClick={handleStartEdit}
-                className={`text-sm font-medium px-3 py-1.5 rounded-xl transition-all duration-200 ${
-                  isHovered 
-                    ? 'opacity-100 bg-slate-100 text-slate-700 hover:bg-slate-200' 
-                    : 'opacity-0'
-                }`}
-              >
-                Edit
-              </button>
-            )}
-          </div>
-
-          {/* Content */}
-          <div className="ml-9">
-            {isEditing ? (
-              <div className="space-y-3 animate-in fade-in duration-200">
-                {field.type === 'textarea' || field.type === 'list' ? (
-                  <textarea
-                    ref={inputRef}
-                    value={localValue}
-                    onChange={(e) => setLocalValue(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Escape' && setIsEditing(false)}
-                    rows={4}
-                    placeholder={field.type === 'list' ? 'One item per line...' : 'Type here...'}
-                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-400 focus:ring-4 focus:ring-amber-100 outline-none text-slate-700 resize-none transition-all bg-slate-50 focus:bg-white"
-                  />
-                ) : (
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={localValue}
-                    onChange={(e) => setLocalValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') setIsEditing(false)
-                      if (e.key === 'Enter') handleSave()
-                    }}
-                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-amber-400 focus:ring-4 focus:ring-amber-100 outline-none text-slate-700 transition-all bg-slate-50 focus:bg-white"
-                  />
-                )}
-                <div className="flex gap-2">
-                  <button onClick={handleSave} className="px-4 py-2 rounded-xl bg-slate-900 text-white font-medium hover:bg-slate-800 transition-colors">
-                    Save
-                  </button>
-                  <button onClick={() => setIsEditing(false)} className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 transition-colors">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div onClick={field.type !== 'actions' ? handleStartEdit : undefined} className={field.type !== 'actions' ? 'cursor-text' : ''}>
-                {field.type === 'list' && Array.isArray(value) && value.length > 0 ? (
-                  <ul className="space-y-1">
-                    {value.map((item, i) => (
-                      <li key={i} className="flex items-start gap-2 text-slate-700">
-                        <span className="text-amber-500 mt-1">•</span>
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : field.type === 'actions' ? (
-                  <div className="space-y-2">
-                    {actions?.length > 0 ? actions.map((action, i) => (
-                      <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100">
-                        <span className="text-emerald-500 text-lg mt-0.5">☐</span>
-                        <div className="flex-1">
-                          <p className="font-medium text-slate-800">{action.title}</p>
-                          <div className="flex flex-wrap gap-3 mt-1 text-sm text-slate-500">
-                            {action.metadata?.contact && <span>👤 {action.metadata.contact}</span>}
-                            {action.metadata?.due_date && <span>📅 {action.metadata.due_date}</span>}
-                          </div>
-                        </div>
-                      </div>
-                    )) : (
-                      <p className="text-slate-400 italic">No action items yet</p>
-                    )}
-                  </div>
-                ) : isEmpty ? (
-                  <p className="text-slate-400 italic py-1">Click to add...</p>
-                ) : (
-                  <p className="text-slate-700 leading-relaxed">{value}</p>
-                )}
-              </div>
-            )}
-
-            {/* Citation - clickable to show in transcript */}
-            {citationData.text && !isEditing && (
-              <button
-                onClick={() => onCitationClick && onCitationClick(citationData.text, citationData.timestamp)}
-                className={`mt-4 w-full text-left p-3 rounded-xl transition-all duration-300 group/cite ${
-                  isCitationHighlighted
-                    ? 'bg-amber-100 border-2 border-amber-400 shadow-md'
-                    : 'bg-slate-50 hover:bg-slate-100 border border-slate-100'
-                }`}
-              >
-                <div className="flex items-start gap-2">
-                  {citationData.timestamp && (
-                    <span className={`shrink-0 text-xs font-mono px-2 py-1 rounded-lg transition-colors ${
-                      isCitationHighlighted 
-                        ? 'bg-amber-500 text-white' 
-                        : 'bg-slate-200 text-slate-600 group-hover/cite:bg-amber-100 group-hover/cite:text-amber-700'
-                    }`}>
-                      {citationData.timestamp}
-                    </span>
-                  )}
-                  <p className={`text-sm italic flex-1 ${isCitationHighlighted ? 'text-amber-900' : 'text-slate-500'}`}>
-                    &ldquo;{citationData.text}&rdquo;
-                  </p>
-                  <span className="text-slate-400 text-xs shrink-0">Click to see in transcript →</span>
-                </div>
-              </button>
-            )}
-          </div>
+    <div className="group">
+      {/* Clean row layout */}
+      <div className={`flex items-start gap-4 py-4 border-b border-stone-100 last:border-0 ${
+        isEmpty && field.required ? 'bg-gradient-to-r from-amber-50/50 to-transparent -mx-4 px-4 rounded-lg' : ''
+      }`}>
+        {/* Icon */}
+        <div className="w-10 h-10 rounded-xl bg-stone-100 flex items-center justify-center text-lg shrink-0">
+          {field.icon}
         </div>
+        
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-stone-400">{field.title}</span>
+            {field.required && isEmpty && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 font-medium">Required</span>
+            )}
+            {field.required && !isEmpty && (
+              <span className="text-emerald-500 text-xs">✓</span>
+            )}
+          </div>
+          
+          {isEditing ? (
+            <div className="space-y-2 mt-2">
+              {field.type === 'textarea' || field.type === 'list' ? (
+                <textarea
+                  ref={inputRef}
+                  value={localValue}
+                  onChange={(e) => setLocalValue(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Escape' && setIsEditing(false)}
+                  rows={3}
+                  placeholder={field.type === 'list' ? 'One item per line...' : 'Type here...'}
+                  className="w-full px-3 py-2 rounded-lg border border-stone-200 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 outline-none text-stone-800 resize-none text-sm"
+                />
+              ) : (
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={localValue}
+                  onChange={(e) => setLocalValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') setIsEditing(false)
+                    if (e.key === 'Enter') handleSave()
+                  }}
+                  className="w-full px-3 py-2 rounded-lg border border-stone-200 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 outline-none text-stone-800 text-sm"
+                />
+              )}
+              <div className="flex gap-2">
+                <button onClick={handleSave} className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-medium hover:bg-stone-800">
+                  Save
+                </button>
+                <button onClick={() => setIsEditing(false)} className="px-3 py-1.5 rounded-lg text-stone-500 hover:bg-stone-100 text-xs">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div 
+              onClick={field.type !== 'actions' ? handleStartEdit : undefined} 
+              className={field.type !== 'actions' ? 'cursor-pointer hover:bg-stone-50 -mx-2 px-2 py-1 rounded-lg transition-colors' : ''}
+            >
+              {field.type === 'list' && Array.isArray(value) && value.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {value.map((item, i) => (
+                    <span key={i} className="px-2.5 py-1 bg-stone-100 rounded-full text-sm text-stone-700">
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              ) : field.type === 'actions' ? (
+                <div className="space-y-2 mt-1">
+                  {actions?.length > 0 ? actions.map((action, i) => (
+                    <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-teal-50 border border-teal-100">
+                      <span className="w-5 h-5 rounded border-2 border-teal-400 flex items-center justify-center text-teal-500 text-xs">✓</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-stone-800 text-sm truncate">{action.title}</p>
+                        {(action.metadata?.contact || action.metadata?.due_date) && (
+                          <p className="text-xs text-stone-500 mt-0.5">
+                            {[action.metadata?.contact, action.metadata?.due_date].filter(Boolean).join(' · ')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )) : (
+                    <p className="text-stone-400 text-sm italic">No action items</p>
+                  )}
+                </div>
+              ) : isEmpty ? (
+                <p className="text-stone-400 text-sm">Click to add...</p>
+              ) : (
+                <p className="text-stone-800 text-sm leading-relaxed">{value}</p>
+              )}
+            </div>
+          )}
+
+          {/* Citation badge */}
+          {citationData.text && !isEditing && (
+            <button
+              onClick={() => onCitationClick && onCitationClick(citationData.text, citationData.timestamp)}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs text-teal-600 hover:text-teal-700 hover:bg-teal-50 px-2 py-1 rounded-md transition-colors"
+            >
+              {citationData.timestamp && <span className="font-mono bg-teal-100 px-1.5 py-0.5 rounded text-[10px]">{citationData.timestamp}</span>}
+              <span className="truncate max-w-[200px]">&ldquo;{citationData.text}&rdquo;</span>
+              <span className="text-stone-400">→</span>
+            </button>
+          )}
+        </div>
+        
+        {/* Edit trigger */}
+        {!isEditing && field.type !== 'actions' && (
+          <button
+            onClick={handleStartEdit}
+            className="opacity-0 group-hover:opacity-100 p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-lg transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   )
@@ -484,152 +448,167 @@ export function MeetingMinutesForm({ recordingId, onClose }) {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-        <div className="bg-white rounded-3xl p-8 shadow-2xl flex items-center gap-4">
-          <div className="w-8 h-8 border-3 border-amber-200 border-t-amber-500 rounded-full animate-spin" />
-          <span className="text-slate-600 font-medium">Loading...</span>
+      <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="bg-white rounded-2xl p-6 shadow-2xl flex items-center gap-3">
+          <div className="w-5 h-5 border-2 border-teal-200 border-t-teal-600 rounded-full animate-spin" />
+          <span className="text-stone-600 font-medium text-sm">Loading...</span>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-slate-900/50 to-slate-800/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gradient-to-br from-orange-50 via-white to-amber-50 rounded-3xl max-w-3xl w-full shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
-        
-        {/* Header - warm gradient */}
-        <div className="relative p-6 border-b border-amber-100 bg-white/80 backdrop-blur-md">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+    <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex flex-col">
+      {/* STICKY HEADER - Always visible */}
+      <div className="sticky top-0 z-10 bg-white border-b border-stone-200 shadow-sm">
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between gap-4">
+            {/* Left: Title + Progress */}
+            <div className="flex items-center gap-4 min-w-0">
               {hasMinutes && (
-                <div className="relative">
+                <div className="relative shrink-0">
                   <ProgressRing progress={progress} />
-                  <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-700">
+                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-stone-600">
                     {progress}%
                   </span>
                 </div>
               )}
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">Meeting Minutes</h2>
-                <p className="text-slate-500 text-sm">
-                  {hasMinutes ? `${filledCount} of ${requiredFields.length} sections complete` : 'Generate from your recording'}
+              <div className="min-w-0">
+                <h1 className="text-lg font-bold text-stone-900 truncate">Meeting Minutes</h1>
+                <p className="text-xs text-stone-500">
+                  {hasMinutes ? `${filledCount}/${requiredFields.length} complete` : 'Generate from recording'}
                 </p>
               </div>
             </div>
             
-            <button 
-              onClick={onClose}
-              className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-all hover:scale-105"
-            >
-              ✕
-            </button>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex gap-3 mt-4">
-            {!hasMinutes ? (
-              <button
-                onClick={handleGenerate}
-                disabled={generating || !recording?.transcription}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 transition-all hover:scale-[1.02] disabled:opacity-50"
-              >
-                {generating ? (
-                  <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Creating...</>
-                ) : (
-                  <>✨ Generate Minutes</>
-                )}
-              </button>
-            ) : (
-              <>
-                <button onClick={handleGenerate} disabled={generating} className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-medium hover:bg-slate-200 transition-all">
-                  {generating ? 'Regenerating...' : '🔄 Regenerate'}
-                </button>
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2 shrink-0">
+              {!hasMinutes ? (
                 <button
-                  onClick={handleExportPDF}
-                  disabled={exporting}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white font-medium hover:bg-slate-800 transition-all"
+                  onClick={handleGenerate}
+                  disabled={generating || !recording?.transcription}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 transition-colors disabled:opacity-50"
                 >
-                  {exporting ? 'Exporting...' : '📄 Export PDF'}
+                  {generating ? (
+                    <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Creating...</>
+                  ) : (
+                    <>✨ Generate</>
+                  )}
                 </button>
-              </>
-            )}
+              ) : (
+                <>
+                  <button 
+                    onClick={handleGenerate} 
+                    disabled={generating} 
+                    className="px-3 py-2 rounded-lg text-stone-600 hover:bg-stone-100 text-sm font-medium transition-colors"
+                  >
+                    {generating ? '...' : '↻'}
+                  </button>
+                  <button
+                    onClick={handleExportPDF}
+                    disabled={exporting}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-stone-900 text-white text-sm font-medium hover:bg-stone-800 transition-colors"
+                  >
+                    {exporting ? 'Exporting...' : '📄 Export PDF'}
+                  </button>
+                </>
+              )}
+              <button 
+                onClick={onClose}
+                className="p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-lg transition-colors ml-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Content */}
-        <div ref={formRef} className="flex-1 overflow-y-auto p-6">
-          {/* PDF Header */}
-          <div className="text-center mb-8 pb-6 border-b border-slate-200">
-            <h1 className="text-2xl font-bold text-slate-900">
-              {minutes.meeting_title?.value || 'Meeting Minutes'}
-            </h1>
-            <p className="text-slate-500 mt-2">
-              {new Date().toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-            </p>
-          </div>
-
+      {/* SCROLLABLE CONTENT */}
+      <div className="flex-1 overflow-y-auto bg-gradient-to-b from-stone-50 to-white">
+        <div ref={formRef} className="max-w-4xl mx-auto px-6 py-8">
+          
           {!hasMinutes ? (
-            <div className="text-center py-16">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center text-4xl shadow-lg shadow-amber-100">
+            /* Empty state */
+            <div className="text-center py-20">
+              <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-teal-100 to-cyan-100 flex items-center justify-center text-3xl">
                 📝
               </div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">Ready to create minutes?</h3>
-              <p className="text-slate-500 max-w-md mx-auto">
-                Click &ldquo;Generate Minutes&rdquo; and we&apos;ll create a structured summary from your recording. You can edit everything afterwards.
+              <h2 className="text-xl font-semibold text-stone-900 mb-2">Ready to create minutes?</h2>
+              <p className="text-stone-500 max-w-sm mx-auto text-sm">
+                Click &ldquo;Generate&rdquo; to create a structured summary from your recording. Everything is editable.
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {FORM_FIELDS.map(field => (
-                <EditableField
-                  key={field.id}
-                  field={field}
-                  data={minutes[field.id]}
-                  onUpdate={handleUpdateField}
-                  actions={field.type === 'actions' ? actions : null}
-                  onCitationClick={handleCitationClick}
-                  highlightedQuote={highlightedQuote}
-                />
-              ))}
+            <>
+              {/* Document header for PDF */}
+              <div className="text-center mb-8 pb-6 border-b border-stone-200">
+                <h1 className="text-2xl font-bold text-stone-900">
+                  {minutes.meeting_title?.value || 'Meeting Minutes'}
+                </h1>
+                <p className="text-stone-500 mt-1 text-sm">
+                  {minutes.date_time?.value || new Date().toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+              </div>
 
-              {/* Transcript with highlighting */}
-              <div ref={transcriptRef} className="mt-8 rounded-2xl border border-slate-200 overflow-hidden">
+              {/* Form Fields - Clean card layout */}
+              <div className="bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden">
+                <div className="px-4">
+                  {FORM_FIELDS.map(field => (
+                    <FormField
+                      key={field.id}
+                      field={field}
+                      data={minutes[field.id]}
+                      onUpdate={handleUpdateField}
+                      actions={field.type === 'actions' ? actions : null}
+                      onCitationClick={handleCitationClick}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Transcript section */}
+              <div ref={transcriptRef} className="mt-6 bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden">
                 <button
                   onClick={() => setTranscriptOpen(!transcriptOpen)}
-                  className="w-full p-4 bg-slate-50 hover:bg-slate-100 transition-colors flex items-center justify-between"
+                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-stone-50 transition-colors"
                 >
-                  <span className="font-medium text-slate-700 flex items-center gap-2">
+                  <span className="font-medium text-stone-700 text-sm flex items-center gap-2">
                     📜 Full Transcript
                     {highlightedQuote && (
-                      <span className="text-xs bg-amber-500 text-white px-2 py-0.5 rounded-full animate-pulse">
-                        Quote highlighted below
+                      <span className="text-[10px] bg-teal-500 text-white px-2 py-0.5 rounded-full animate-pulse">
+                        Highlighted
                       </span>
                     )}
                   </span>
-                  <span className={`transition-transform ${transcriptOpen ? 'rotate-180' : ''}`}>▼</span>
+                  <svg className={`w-4 h-4 text-stone-400 transition-transform ${transcriptOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
                 </button>
                 
                 {transcriptOpen && (
-                  <div className="p-4 bg-white max-h-80 overflow-y-auto">
+                  <div className="border-t border-stone-100 p-4 max-h-[400px] overflow-y-auto bg-stone-50">
                     {segments.length > 0 ? (
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         {segments.map((seg, idx) => {
                           const hasMatch = highlightedQuote && seg.text.toLowerCase().includes(highlightedQuote.toLowerCase())
                           return (
                             <div 
                               key={idx}
-                              className={`flex gap-3 p-3 rounded-xl transition-all duration-500 ${
-                                hasMatch ? 'bg-amber-100 border-2 border-amber-400 shadow-md scale-[1.01]' : 'hover:bg-slate-50'
+                              className={`flex gap-3 p-2.5 rounded-lg transition-all ${
+                                hasMatch ? 'bg-teal-100 border border-teal-300 shadow-sm' : 'hover:bg-white'
                               }`}
                             >
-                              <span className={`shrink-0 font-mono text-xs px-2 py-1 rounded-lg ${
-                                hasMatch ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-500'
+                              <span className={`shrink-0 font-mono text-[10px] px-1.5 py-0.5 rounded ${
+                                hasMatch ? 'bg-teal-600 text-white' : 'bg-stone-200 text-stone-500'
                               }`}>
                                 {seg.timestamp}
                               </span>
-                              <div className="flex-1">
-                                {seg.speaker && <span className="font-semibold text-amber-700 mr-1">Speaker {seg.speaker}:</span>}
-                                <span className={hasMatch ? 'text-amber-900' : 'text-slate-600'}>
+                              <div className="flex-1 text-sm">
+                                {seg.speaker && <span className="font-semibold text-teal-700 mr-1">Speaker {seg.speaker}:</span>}
+                                <span className={hasMatch ? 'text-teal-900' : 'text-stone-600'}>
                                   {highlightText(seg.text)}
                                 </span>
                               </div>
@@ -638,14 +617,14 @@ export function MeetingMinutesForm({ recordingId, onClose }) {
                         })}
                       </div>
                     ) : (
-                      <p className="text-slate-600 whitespace-pre-wrap leading-relaxed">
+                      <p className="text-stone-600 text-sm whitespace-pre-wrap leading-relaxed">
                         {recording?.transcription || 'No transcript available'}
                       </p>
                     )}
                   </div>
                 )}
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>
