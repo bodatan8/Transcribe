@@ -173,10 +173,29 @@ function EditableField({ field, data, citation, onUpdate, actions, onCitationCli
   const isEmpty = !value || (Array.isArray(value) && value.length === 0)
   const fieldCitation = citation || data?.citation
   
-  // Extract timestamp from citation
-  const citationData = typeof fieldCitation === 'object' && fieldCitation !== null
-    ? fieldCitation
-    : { text: fieldCitation, timestamp: null }
+  // Extract citation data - handle objects, arrays, and strings
+  const getCitationData = () => {
+    if (!fieldCitation) return { text: null, timestamp: null }
+    
+    // Array of citations (e.g., key_points citations)
+    if (Array.isArray(fieldCitation)) {
+      const first = fieldCitation[0]
+      if (typeof first === 'object' && first !== null) {
+        return { text: first.text || '', timestamp: first.timestamp || null }
+      }
+      return { text: String(first || ''), timestamp: null }
+    }
+    
+    // Single citation object
+    if (typeof fieldCitation === 'object' && fieldCitation !== null) {
+      return { text: fieldCitation.text || '', timestamp: fieldCitation.timestamp || null }
+    }
+    
+    // String citation
+    return { text: String(fieldCitation), timestamp: null }
+  }
+  
+  const citationData = getCitationData()
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -366,7 +385,7 @@ function EditableField({ field, data, citation, onUpdate, actions, onCitationCli
                 <span className="text-slate-400 shrink-0">📎</span>
               )}
               <p className="text-slate-500 italic line-clamp-2">
-                &ldquo;{citationData.text || (Array.isArray(fieldCitation) ? fieldCitation[0]?.text || fieldCitation[0] : fieldCitation)}&rdquo;
+                &ldquo;{citationData.text || ''}&rdquo;
               </p>
             </div>
           </div>
