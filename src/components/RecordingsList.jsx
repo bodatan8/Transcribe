@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { StaticWaveform } from './Waveform'
 import { extractActionsFromTranscript } from '../services/actionExtraction'
+import { MeetingMinutesForm } from './MeetingMinutesForm'
 import toast from 'react-hot-toast'
 
 /**
@@ -26,7 +27,7 @@ const RecordingSkeleton = memo(() => (
 
 RecordingSkeleton.displayName = 'RecordingSkeleton'
 
-const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdit, onRetranscribe, actions, onNavigateToAction }) => {
+const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdit, onRetranscribe, actions, onNavigateToAction, onViewMinutes }) => {
   const [isEditing, setIsEditing] = useState(false)
   const [title, setTitle] = useState(recording.title || '')
   const [notes, setNotes] = useState(recording.notes || '')
@@ -322,6 +323,16 @@ const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdi
             {isActionsExpanded ? 'Hide' : 'Show'} actions ({actionsCount})
           </button>
         )}
+
+        {/* View Minutes / Export PDF */}
+        {recording.transcription && recording.transcription_status === 'completed' && (
+          <button 
+            onClick={() => onViewMinutes && onViewMinutes(recording.id)} 
+            className="text-sm font-medium text-purple-600 hover:text-purple-700 flex items-center gap-1"
+          >
+            📄 View Minutes / Export PDF
+          </button>
+        )}
       </div>
 
       {/* Expanded transcription - supports speaker diarization format */}
@@ -387,6 +398,7 @@ export const RecordingsList = memo(({ limit, compact, onNavigateToAction }) => {
   const [actions, setActions] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandedSection, setExpandedSection] = useState(null)
+  const [minutesRecordingId, setMinutesRecordingId] = useState(null)
 
   const fetchData = useCallback(async () => {
     try {
@@ -503,9 +515,18 @@ export const RecordingsList = memo(({ limit, compact, onNavigateToAction }) => {
               onEdit={handleEdit}
               onRetranscribe={handleRetranscribe}
               onNavigateToAction={onNavigateToAction}
+              onViewMinutes={setMinutesRecordingId}
             />
           ))}
         </div>
+      )}
+
+      {/* Meeting Minutes Modal */}
+      {minutesRecordingId && (
+        <MeetingMinutesForm 
+          recordingId={minutesRecordingId} 
+          onClose={() => setMinutesRecordingId(null)} 
+        />
       )}
     </div>
   )
