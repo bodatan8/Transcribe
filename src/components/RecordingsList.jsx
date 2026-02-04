@@ -187,11 +187,12 @@ const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdi
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
           </button>
-          {recording.transcription_status === 'completed' && (
+          {/* Show retry button for completed, pending, or failed recordings */}
+          {['completed', 'pending', 'failed'].includes(recording.transcription_status) && (
             <button
               onClick={handleRetranscribe}
-              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-              title="Re-transcribe"
+              className="p-1.5 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-lg transition-colors"
+              title={recording.transcription_status === 'completed' ? 'Re-transcribe' : 'Retry transcription'}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -485,16 +486,54 @@ export const RecordingsList = memo(({ limit, compact, onNavigateToAction }) => {
   }, [fetchData])
 
   const handleRetranscribe = useCallback(async (id) => {
-    await supabase
-      .from('recordings')
-      .update({ 
-        transcription_status: 'processing',
-        updated_at: new Date().toISOString() 
-      })
-      .eq('id', id)
-    
-    fetchData()
-  }, [fetchData])
+    try {
+      // Get the recording to find audio URL
+      const recording = recordings.find(r => r.id === id)
+      if (!recording?.audio_url) {
+        toast.error('No audio file found')
+        return
+      }
+
+      // Set status to processing
+      await supabase
+        .from('recordings')
+        .update({ 
+          transcription_status: 'processing',
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', id)
+      
+      fetchData()
+      toast.loading('Fetching audio...', { id: 'retranscribe' })
+
+      // Fetch audio from storage URL
+      const audioResponse = await fetch(recording.audio_url)
+      if (!audioResponse.ok) {
+        throw new Error('Failed to fetch audio')
+      }
+      const audioBlob = await audioResponse.blob()
+      
+      toast.loading('Transcribing...', { id: 'retranscribe' })
+      
+      // Import and run transcription
+      const { processTranscription } = await import('../services/transcription')
+      await processTranscription(id, audioBlob)
+      
+      toast.success('Transcription complete!', { id: 'retranscribe' })
+      fetchData()
+    } catch (error) {
+      console.error('Re-transcribe error:', error)
+      toast.error('Transcription failed', { id: 'retranscribe' })
+      
+      // Update status to failed
+      await supabase
+        .from('recordings')
+        .update({ transcription_status: 'failed' })
+        .eq('id', id)
+      
+      fetchData()
+    }
+  }, [recordings, fetchData])
 
   const handleToggleSection = useCallback((sectionId) => {
     setExpandedSection(prev => prev === sectionId ? null : sectionId)
