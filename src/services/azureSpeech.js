@@ -59,40 +59,48 @@ export const transcribeWithAzureSpeech = async (audioBlob) => {
     const result = await response.json()
     console.log('Azure Fast Transcription result:', JSON.stringify(result, null, 2))
 
-    // Fast Transcription API returns phrases with speaker info when diarization is enabled
+    // Fast Transcription API returns phrases with timestamps and speaker info
     if (result.phrases && result.phrases.length > 0) {
-      // Check if diarization data is present (speaker field in phrases)
       const hasSpeakers = result.phrases.some(p => p.speaker !== undefined)
       
+      // Build timestamped segments for citations
+      const segments = result.phrases.map(phrase => ({
+        text: phrase.text,
+        startMs: phrase.offsetMilliseconds || 0,
+        endMs: (phrase.offsetMilliseconds || 0) + (phrase.durationMilliseconds || 0),
+        speaker: phrase.speaker !== undefined ? phrase.speaker + 1 : null,
+        timestamp: formatTimestamp(phrase.offsetMilliseconds || 0)
+      }))
+      
+      // Build formatted text with speaker labels
       let formattedText = ''
       if (hasSpeakers) {
-        // Format with speaker labels
         let currentSpeaker = null
-        const segments = []
+        const textParts = []
         
-        for (const phrase of result.phrases) {
-          const speaker = phrase.speaker !== undefined ? `Speaker ${phrase.speaker + 1}` : null
+        for (const seg of segments) {
+          const speaker = seg.speaker ? `Speaker ${seg.speaker}` : null
           
           if (speaker && speaker !== currentSpeaker) {
             currentSpeaker = speaker
-            segments.push(`\n\n**${speaker}:** ${phrase.text}`)
+            textParts.push(`\n\n**${speaker}:** ${seg.text}`)
           } else {
-            segments.push(phrase.text)
+            textParts.push(seg.text)
           }
         }
         
-        formattedText = segments.join(' ').trim()
+        formattedText = textParts.join(' ').trim()
       } else {
-        // No diarization - use combined phrases or join all
-        formattedText = result.combinedPhrases?.[0]?.text || result.phrases.map(p => p.text).join(' ')
+        formattedText = result.combinedPhrases?.[0]?.text || segments.map(s => s.text).join(' ')
       }
       
-      console.log('Transcription with speakers:', formattedText)
+      console.log('Transcription with timestamps:', formattedText)
       
       return {
         text: formattedText,
         confidence: result.phrases[0]?.confidence || 0.9,
         words: result.phrases.flatMap(p => p.words || []),
+        segments: segments, // Timestamped segments for citations
         hasSpeakers: hasSpeakers,
         speakerCount: hasSpeakers ? new Set(result.phrases.map(p => p.speaker)).size : 1
       }
@@ -103,17 +111,28 @@ export const transcribeWithAzureSpeech = async (audioBlob) => {
         text: fullText,
         confidence: 0.9,
         words: [],
+        segments: [{ text: fullText, startMs: 0, endMs: 0, timestamp: '0:00' }],
         hasSpeakers: false,
         speakerCount: 1
       }
     } else {
       console.log('No speech detected in audio')
-      return { text: '', confidence: 0, words: [], hasSpeakers: false, speakerCount: 0 }
+      return { text: '', confidence: 0, words: [], segments: [], hasSpeakers: false, speakerCount: 0 }
     }
   } catch (error) {
     console.error('Error transcribing with Azure Fast Transcription:', error)
     return null
   }
+}
+
+/**
+ * Format milliseconds to MM:SS timestamp
+ */
+function formatTimestamp(ms) {
+  const totalSeconds = Math.floor(ms / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`
 }
 
 /**

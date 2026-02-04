@@ -56,14 +56,17 @@ export const uploadAndTranscribe = async (audioBlob, userId) => {
 export const processTranscription = async (recordingId, audioBlob) => {
   try {
     let transcriptText = ''
+    let segments = []
     
     if (isAzureSpeechConfigured()) {
-      console.log('Using Azure Speech for transcription (with WAV conversion)...')
+      console.log('Using Azure Speech for transcription...')
       const result = await transcribeWithAzureSpeech(audioBlob)
       
       if (result && result.text) {
         transcriptText = result.text
+        segments = result.segments || []
         console.log('Transcription successful:', transcriptText)
+        console.log('Segments with timestamps:', segments.length)
       } else {
         console.log('No speech detected in audio')
         transcriptText = '[No speech detected - try speaking more clearly]'
@@ -73,12 +76,13 @@ export const processTranscription = async (recordingId, audioBlob) => {
       transcriptText = '[Transcription not available - Azure Speech not configured]'
     }
     
-    // Update recording with transcription
+    // Update recording with transcription and timestamped segments
     const { error } = await supabase
       .from('recordings')
       .update({
         transcription: transcriptText,
         transcription_status: 'completed',
+        metadata: { segments } // Store timestamped segments for citations
       })
       .eq('id', recordingId)
 

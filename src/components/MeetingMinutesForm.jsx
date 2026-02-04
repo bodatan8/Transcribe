@@ -77,8 +77,9 @@ const OPENAI_DEPLOYMENT = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT || 'gpt-4
 
 /**
  * Generate meeting minutes from transcript using AI with citations
+ * Uses timestamped segments for precise citation timestamps
  */
-async function generateMeetingMinutes(transcript, actions) {
+async function generateMeetingMinutes(transcript, actions, segments) {
   if (!OPENAI_ENDPOINT || !OPENAI_KEY) {
     console.warn('Azure OpenAI not configured')
     return null
@@ -87,33 +88,38 @@ async function generateMeetingMinutes(transcript, actions) {
   const apiVersion = '2024-08-01-preview'
   const url = `${OPENAI_ENDPOINT}openai/deployments/${OPENAI_DEPLOYMENT}/chat/completions?api-version=${apiVersion}`
   
-  const systemPrompt = `You are a meeting minutes assistant. Generate structured meeting minutes from the transcript.
+  // Build timestamped transcript for AI
+  const timestampedTranscript = segments && segments.length > 0
+    ? segments.map(s => `[${s.timestamp}] ${s.speaker ? `Speaker ${s.speaker}: ` : ''}${s.text}`).join('\n')
+    : transcript
+  
+  const systemPrompt = `You are a meeting minutes assistant. Generate structured meeting minutes from the timestamped transcript.
 
-For EACH field you populate, include a citation - the exact quote from the transcript.
+The transcript has timestamps in format [M:SS]. For EACH citation, include the EXACT timestamp from the transcript.
 
 Return a JSON object:
 {
-  "meeting_title": { "value": "Concise title (max 60 chars)", "citation": "exact quote" },
-  "date_time": { "value": "Date and time", "citation": "quote or 'Inferred from recording timestamp'" },
-  "attendees": { "value": ["Person 1", "Person 2"], "citation": "quotes mentioning names" },
-  "summary": { "value": "2-3 sentence summary", "citation": "key supporting quotes" },
-  "key_points": { "value": ["Point 1", "Point 2"], "citations": ["quote 1", "quote 2"] },
-  "next_steps": { "value": "Next actions", "citation": "supporting quote" },
-  "notes": { "value": "Additional context", "citation": "supporting quote" }
+  "meeting_title": { "value": "Concise title (max 60 chars)", "citation": { "text": "exact quote", "timestamp": "0:00" } },
+  "date_time": { "value": "Date and time", "citation": { "text": "quote or inferred", "timestamp": "0:00" } },
+  "attendees": { "value": ["Person 1", "Person 2"], "citation": { "text": "quotes mentioning names", "timestamp": "0:15" } },
+  "summary": { "value": "2-3 sentence summary", "citation": { "text": "key quote", "timestamp": "0:30" } },
+  "key_points": { "value": ["Point 1", "Point 2"], "citations": [{ "text": "quote 1", "timestamp": "1:00" }, { "text": "quote 2", "timestamp": "2:30" }] },
+  "next_steps": { "value": "Next actions", "citation": { "text": "supporting quote", "timestamp": "3:00" } },
+  "notes": { "value": "Additional context", "citation": { "text": "supporting quote", "timestamp": "3:30" } }
 }
 
 Rules:
-- If info not found, set value to "" (empty string), not null
-- Citations must be EXACT quotes from transcript
+- If info not found, set value to "" (empty string)
+- Citations must include the EXACT timestamp from the transcript [M:SS] format
 - Keep meeting_title under 60 chars
 - Extract ALL names mentioned as attendees
 - Max 5 key points, prioritize decisions made
 
 Return ONLY valid JSON.`
 
-  const userPrompt = `Generate meeting minutes from this transcript:
+  const userPrompt = `Generate meeting minutes from this timestamped transcript:
 
-${transcript}
+${timestampedTranscript}
 
 ${actions?.length > 0 ? `\nAction items already extracted:\n${actions.map(a => `- ${a.title}`).join('\n')}` : ''}`
 
@@ -154,10 +160,11 @@ ${actions?.length > 0 ? `\nAction items already extracted:\n${actions.map(a => `
   }
 }
 
+
 /**
- * Editable Field Component - Modern inline editing
+ * Editable Field Component - Modern inline editing with clickable timestamps
  */
-function EditableField({ field, data, citation, onUpdate, actions }) {
+function EditableField({ field, data, citation, onUpdate, actions, onCitationClick }) {
   const [isEditing, setIsEditing] = useState(false)
   const [localValue, setLocalValue] = useState('')
   const inputRef = useRef(null)
@@ -165,6 +172,11 @@ function EditableField({ field, data, citation, onUpdate, actions }) {
   const value = data?.value ?? data ?? ''
   const isEmpty = !value || (Array.isArray(value) && value.length === 0)
   const fieldCitation = citation || data?.citation
+  
+  // Extract timestamp from citation
+  const citationData = typeof fieldCitation === 'object' && fieldCitation !== null
+    ? fieldCitation
+    : { text: fieldCitation, timestamp: null }
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -335,13 +347,26 @@ function EditableField({ field, data, citation, onUpdate, actions }) {
           </div>
         )}
 
-        {/* Citation - subtle design */}
+        {/* Citation with clickable timestamp */}
         {fieldCitation && !isEditing && (
           <div className="mt-3 pt-3 border-t border-slate-100">
             <div className="flex items-start gap-2 text-xs">
-              <span className="text-slate-400 shrink-0">📎</span>
+              {/* Clickable timestamp badge */}
+              {citationData.timestamp && (
+                <button
+                  onClick={() => onCitationClick && onCitationClick(citationData.timestamp)}
+                  className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-md bg-spratt-blue-50 text-spratt-blue hover:bg-spratt-blue-100 transition-colors font-medium"
+                  title="Jump to this moment in transcript"
+                >
+                  <span>⏱</span>
+                  <span>{citationData.timestamp}</span>
+                </button>
+              )}
+              {!citationData.timestamp && (
+                <span className="text-slate-400 shrink-0">📎</span>
+              )}
               <p className="text-slate-500 italic line-clamp-2">
-                &ldquo;{Array.isArray(fieldCitation) ? fieldCitation[0] : fieldCitation}&rdquo;
+                &ldquo;{citationData.text || (Array.isArray(fieldCitation) ? fieldCitation[0]?.text || fieldCitation[0] : fieldCitation)}&rdquo;
               </p>
             </div>
           </div>
@@ -393,7 +418,13 @@ export function MeetingMinutesForm({ recordingId, onClose }) {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [highlightedTimestamp, setHighlightedTimestamp] = useState(null)
+  const [transcriptExpanded, setTranscriptExpanded] = useState(false)
   const formRef = useRef(null)
+  const transcriptRef = useRef(null)
+
+  // Get segments from recording metadata
+  const segments = recording?.metadata?.segments || []
 
   // Load recording and actions
   useEffect(() => {
@@ -416,19 +447,35 @@ export function MeetingMinutesForm({ recordingId, onClose }) {
     if (recordingId) loadData()
   }, [recordingId])
 
-  // Generate minutes
+  // Generate minutes with timestamped segments
   const handleGenerate = async () => {
     if (!recording?.transcription) return
     
     setGenerating(true)
     try {
-      const result = await generateMeetingMinutes(recording.transcription, actions)
+      const result = await generateMeetingMinutes(recording.transcription, actions, segments)
       if (result) {
         setMinutes(result)
       }
     } finally {
       setGenerating(false)
     }
+  }
+
+  // Handle citation click - scroll to and highlight that part of transcript
+  const handleCitationClick = (timestamp) => {
+    setHighlightedTimestamp(timestamp)
+    setTranscriptExpanded(true)
+    
+    // Scroll to transcript section after a brief delay for expansion
+    setTimeout(() => {
+      if (transcriptRef.current) {
+        transcriptRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 100)
+    
+    // Clear highlight after 3 seconds
+    setTimeout(() => setHighlightedTimestamp(null), 3000)
   }
 
   // Update a field value
@@ -587,19 +634,69 @@ export function MeetingMinutesForm({ recordingId, onClose }) {
                   citation={minutes[field.id]?.citation || minutes[field.id]?.citations}
                   onUpdate={handleUpdateField}
                   actions={field.type === 'actions' ? actions : null}
+                  onCitationClick={handleCitationClick}
                 />
               ))}
 
-              {/* Full Transcript (collapsible) */}
-              <details className="mt-8 group">
-                <summary className="cursor-pointer text-sm font-medium text-slate-600 hover:text-slate-900 flex items-center gap-2 py-2">
-                  <span className="transition-transform group-open:rotate-90">▸</span>
+              {/* Full Transcript with timestamps (collapsible) */}
+              <div className="mt-8" ref={transcriptRef}>
+                <button 
+                  onClick={() => setTranscriptExpanded(!transcriptExpanded)}
+                  className="w-full text-left cursor-pointer text-sm font-medium text-slate-600 hover:text-slate-900 flex items-center gap-2 py-2"
+                >
+                  <span className={`transition-transform ${transcriptExpanded ? 'rotate-90' : ''}`}>▸</span>
                   Full Transcript
-                </summary>
-                <div className="mt-3 p-4 bg-slate-50 rounded-xl text-sm text-slate-600 max-h-48 overflow-y-auto whitespace-pre-wrap border border-slate-100">
-                  {recording?.transcription || 'No transcript available'}
-                </div>
-              </details>
+                  {highlightedTimestamp && (
+                    <span className="ml-2 text-xs bg-spratt-blue text-white px-2 py-0.5 rounded-full animate-pulse">
+                      Showing {highlightedTimestamp}
+                    </span>
+                  )}
+                </button>
+                
+                {transcriptExpanded && (
+                  <div className="mt-3 p-4 bg-slate-50 rounded-xl text-sm text-slate-600 max-h-64 overflow-y-auto border border-slate-100">
+                    {segments.length > 0 ? (
+                      <div className="space-y-2">
+                        {segments.map((seg, idx) => {
+                          const isHighlighted = highlightedTimestamp === seg.timestamp
+                          return (
+                            <div 
+                              key={idx}
+                              className={`flex gap-3 p-2 rounded-lg transition-all duration-300 ${
+                                isHighlighted 
+                                  ? 'bg-spratt-blue-100 border border-spratt-blue-300 shadow-sm' 
+                                  : 'hover:bg-slate-100'
+                              }`}
+                            >
+                              <span className={`shrink-0 font-mono text-xs px-2 py-1 rounded ${
+                                isHighlighted 
+                                  ? 'bg-spratt-blue text-white' 
+                                  : 'bg-slate-200 text-slate-600'
+                              }`}>
+                                {seg.timestamp}
+                              </span>
+                              <div className="flex-1">
+                                {seg.speaker && (
+                                  <span className="font-semibold text-spratt-blue mr-1">
+                                    Speaker {seg.speaker}:
+                                  </span>
+                                )}
+                                <span className={isHighlighted ? 'text-slate-900' : ''}>
+                                  {seg.text}
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <p className="whitespace-pre-wrap">
+                        {recording?.transcription || 'No transcript available'}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
