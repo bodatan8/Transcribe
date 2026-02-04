@@ -335,13 +335,35 @@ const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdi
         )}
       </div>
 
-      {/* Expanded transcription - warmer styling with speaker diarization */}
+      {/* Expanded transcription - with timestamps from segments */}
       {isTranscriptionExpanded && recording.transcription && (
-        <div className="mt-3 p-4 bg-gradient-to-br from-stone-50 to-amber-50/30 rounded-xl text-sm text-stone-700 leading-relaxed animate-in whitespace-pre-wrap border border-stone-100/50">
-          {recording.transcription.split(/\*\*([^*]+)\*\*/).map((part, i) => 
-            i % 2 === 1 
-              ? <strong key={i} className="text-teal-700 font-semibold">{part}</strong>
-              : part
+        <div className="mt-3 bg-gradient-to-br from-stone-50 to-amber-50/30 rounded-xl text-sm animate-in border border-stone-100/50 overflow-hidden">
+          {recording.metadata?.segments?.length > 0 ? (
+            /* Timestamped segments view */
+            <div className="max-h-80 overflow-y-auto p-3 space-y-2">
+              {recording.metadata.segments.map((seg, idx) => (
+                <div key={idx} className="flex gap-2.5 p-2 rounded-lg hover:bg-white/60 transition-colors">
+                  <span className="shrink-0 font-mono text-[10px] px-1.5 py-0.5 rounded bg-stone-200 text-stone-500 h-fit">
+                    {seg.timestamp}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    {seg.speaker && (
+                      <span className="font-semibold text-teal-700 mr-1.5">Speaker {seg.speaker}:</span>
+                    )}
+                    <span className="text-stone-700">{seg.text}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* Fallback: plain text with speaker labels */
+            <div className="p-4 text-stone-700 leading-relaxed whitespace-pre-wrap">
+              {recording.transcription.split(/\*\*([^*]+)\*\*/).map((part, i) => 
+                i % 2 === 1 
+                  ? <strong key={i} className="text-teal-700 font-semibold">{part}</strong>
+                  : part
+              )}
+            </div>
           )}
         </div>
       )}
