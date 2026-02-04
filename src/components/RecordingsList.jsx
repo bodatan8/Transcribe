@@ -170,7 +170,7 @@ const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdi
             </span>
           )}
           {actionsCount > 0 && (
-            <span className="text-xs px-2 py-0.5 bg-spratt-blue-50 text-spratt-blue rounded-full font-medium">
+            <span className="text-xs px-2.5 py-0.5 bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 rounded-full font-semibold border border-amber-100/50">
               {actionsCount} action{actionsCount !== 1 ? 's' : ''}
             </span>
           )}
@@ -206,9 +206,9 @@ const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdi
         <h3 className="font-medium text-slate-900 mb-3">{recording.title}</h3>
       )}
 
-      {/* Edit form with transcription editing */}
+      {/* Edit form with transcription editing - warmer */}
       {isEditing && (
-        <div className="mb-4 p-4 bg-slate-50 rounded-xl space-y-3 animate-in">
+        <div className="mb-4 p-4 bg-gradient-to-br from-stone-50 to-amber-50/20 rounded-xl space-y-3 animate-in border border-stone-100/50">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Title</label>
             <input
@@ -284,81 +284,81 @@ const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdi
         <StaticWaveform barCount={100} height={56} />
       </div>
 
-      {/* Status indicator */}
+      {/* Status indicator - warmer */}
       {recording.transcription_status === 'processing' && (
-        <div className="flex items-center gap-2 text-sm text-spratt-blue mb-3">
-          <div className="w-3 h-3 border-2 border-spratt-blue/30 border-t-spratt-blue rounded-full animate-spin" />
+        <div className="flex items-center gap-2 text-sm text-teal-700 mb-3">
+          <div className="w-3 h-3 border-2 border-teal-200 border-t-teal-600 rounded-full animate-spin" />
           {statusInfo.text}
         </div>
       )}
 
-      {/* Actions created indicator */}
+      {/* Actions created indicator - warmer, friendlier */}
       {actionsCount > 0 && recording.transcription_status === 'completed' && (
-        <div className="flex items-center gap-2 text-sm text-emerald-600 mb-3 bg-emerald-50 px-3 py-2 rounded-lg">
-          <span className="text-emerald-500">✓</span>
-          <span className="font-medium">{actionsCount} Action{actionsCount !== 1 ? 's' : ''} & Minutes created from transcript</span>
+        <div className="flex items-center gap-2 text-sm mb-3 px-4 py-2.5 rounded-xl bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-100/50">
+          <span className="w-5 h-5 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center text-white text-xs font-bold shadow-sm">✓</span>
+          <span className="font-medium text-teal-800">{actionsCount} Action{actionsCount !== 1 ? 's' : ''} & Minutes created from transcript</span>
         </div>
       )}
 
       {/* Toggle buttons */}
       <div className="flex flex-wrap gap-4">
-        {/* Transcription toggle */}
+        {/* Transcription toggle - warmer teal */}
         {recording.transcription && (
           <button 
             onClick={() => onToggleSection(`transcription-${recording.id}`)} 
-            className="text-sm font-medium text-spratt-blue hover:text-spratt-blue-700 flex items-center gap-1"
+            className="text-sm font-semibold text-teal-600 hover:text-teal-700 flex items-center gap-1.5 transition-colors"
           >
-            <span className={`transition-transform duration-100 ${isTranscriptionExpanded ? 'rotate-90' : ''}`}>▸</span>
+            <span className={`transition-transform duration-150 ${isTranscriptionExpanded ? 'rotate-90' : ''}`}>▸</span>
             {isTranscriptionExpanded ? 'Hide' : 'Show'} transcription
           </button>
         )}
 
-        {/* Actions toggle */}
+        {/* Actions toggle - warm amber */}
         {actionsCount > 0 && (
           <button 
             onClick={() => onToggleSection(`actions-${recording.id}`)} 
-            className="text-sm font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+            className="text-sm font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-1.5 transition-colors"
           >
-            <span className={`transition-transform duration-100 ${isActionsExpanded ? 'rotate-90' : ''}`}>▸</span>
+            <span className={`transition-transform duration-150 ${isActionsExpanded ? 'rotate-90' : ''}`}>▸</span>
             {isActionsExpanded ? 'Hide' : 'Show'} actions ({actionsCount})
           </button>
         )}
 
-        {/* View Minutes / Export PDF */}
+        {/* View Minutes / Export PDF - warm coral */}
         {recording.transcription && recording.transcription_status === 'completed' && (
           <button 
             onClick={() => onViewMinutes && onViewMinutes(recording.id)} 
-            className="text-sm font-medium text-purple-600 hover:text-purple-700 flex items-center gap-1"
+            className="text-sm font-semibold text-orange-600 hover:text-orange-700 flex items-center gap-1.5 transition-colors"
           >
             📄 View Minutes / Export PDF
           </button>
         )}
       </div>
 
-      {/* Expanded transcription - supports speaker diarization format */}
+      {/* Expanded transcription - warmer styling with speaker diarization */}
       {isTranscriptionExpanded && recording.transcription && (
-        <div className="mt-3 p-4 bg-slate-50 rounded-xl text-sm text-slate-700 leading-relaxed animate-in whitespace-pre-wrap">
+        <div className="mt-3 p-4 bg-gradient-to-br from-stone-50 to-amber-50/30 rounded-xl text-sm text-stone-700 leading-relaxed animate-in whitespace-pre-wrap border border-stone-100/50">
           {recording.transcription.split(/\*\*([^*]+)\*\*/).map((part, i) => 
             i % 2 === 1 
-              ? <strong key={i} className="text-spratt-blue">{part}</strong>
+              ? <strong key={i} className="text-teal-700 font-semibold">{part}</strong>
               : part
           )}
         </div>
       )}
 
-      {/* Expanded actions - clickable to navigate */}
+      {/* Expanded actions - warmer, clickable to navigate */}
       {isActionsExpanded && actionsCount > 0 && (
         <div className="mt-3 space-y-2 animate-in">
           {recordingActions.map(action => (
             <button
               key={action.id}
               onClick={() => onNavigateToAction && onNavigateToAction(action.id)}
-              className="w-full p-3 bg-slate-50 rounded-xl text-left hover:bg-slate-100 transition-colors cursor-pointer"
+              className="w-full p-3.5 bg-gradient-to-br from-amber-50/50 to-orange-50/30 rounded-xl text-left hover:from-amber-50 hover:to-orange-50/50 transition-all cursor-pointer border border-amber-100/30 hover:border-amber-200/50 hover:shadow-sm"
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium text-slate-900 text-sm">{action.title}</span>
+                    <span className="font-semibold text-stone-800 text-sm">{action.title}</span>
                     <span className={`badge text-[10px] ${
                       action.status === 'pending' ? 'badge-warning' : 
                       action.status === 'approved' ? 'badge-success' : 
@@ -368,7 +368,7 @@ const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdi
                     </span>
                   </div>
                   {action.metadata && (
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-stone-500">
                       {[
                         action.metadata.contact,
                         action.metadata.account || action.metadata.company,
@@ -378,8 +378,8 @@ const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdi
                     </div>
                   )}
                 </div>
-                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+                <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </div>
             </button>

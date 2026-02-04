@@ -11,9 +11,9 @@ import { supabase } from '../lib/supabase'
 
 const StatCard = memo(({ label, value, icon, color = 'default', onClick, muted }) => {
   const colors = {
-    default: 'text-spratt-blue bg-spratt-blue-50',
-    warning: 'text-amber-600 bg-amber-50',
-    success: 'text-emerald-600 bg-emerald-50',
+    default: 'text-teal-600 bg-gradient-to-br from-teal-50 to-cyan-50',
+    warning: 'text-amber-600 bg-gradient-to-br from-amber-50 to-orange-50',
+    success: 'text-emerald-600 bg-gradient-to-br from-emerald-50 to-teal-50',
   }
 
   return (
@@ -24,10 +24,10 @@ const StatCard = memo(({ label, value, icon, color = 'default', onClick, muted }
     >
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">{label}</p>
-          <p className="text-3xl font-semibold text-slate-900">{value}</p>
+          <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">{label}</p>
+          <p className="text-3xl font-bold text-stone-900">{value}</p>
         </div>
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${colors[color]}`}>
+        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg shadow-sm ${colors[color]}`}>
           {icon}
         </div>
       </div>
@@ -40,11 +40,11 @@ StatCard.displayName = 'StatCard'
 const SectionHeader = memo(({ title, badge, action, onAction }) => (
   <div className="flex items-center justify-between mb-4">
     <div className="flex items-center gap-2">
-      <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+      <h2 className="text-base font-semibold text-stone-800">{title}</h2>
       {badge && <span className="badge badge-warning">{badge}</span>}
     </div>
     {action && (
-      <button onClick={onAction} className="text-sm font-medium text-spratt-blue hover:text-spratt-blue-700">
+      <button onClick={onAction} className="text-sm font-semibold text-teal-600 hover:text-teal-700 transition-colors">
         {action} →
       </button>
     )}
@@ -130,8 +130,8 @@ export const Dashboard = memo(({ activeView, onViewChange, triggerRecord, action
       <main className="main-content">
         <div className="max-w-3xl mx-auto px-6 lg:px-8 py-8">
           <header className="mb-8">
-            <h1 className="text-2xl font-semibold text-slate-900">{pageMeta.title}</h1>
-            <p className="text-sm text-slate-500 mt-1">{pageMeta.subtitle}</p>
+            <h1 className="text-2xl font-bold text-stone-900">{pageMeta.title}</h1>
+            <p className="text-sm text-stone-500 mt-1">{pageMeta.subtitle}</p>
           </header>
 
           <div className="animate-in">{renderContent()}</div>

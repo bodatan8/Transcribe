@@ -209,7 +209,7 @@ const ActionCard = memo(({ action, onStatusChange, onEdit, compact, onNavigateTo
   return (
     <div className="card p-5">
       <div className="flex items-start gap-4">
-        <div className="w-10 h-10 rounded-xl bg-spratt-blue-50 flex items-center justify-center text-spratt-blue text-lg flex-shrink-0">
+        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-teal-50 to-cyan-50 flex items-center justify-center text-teal-600 text-lg flex-shrink-0 shadow-sm">
           {getIcon()}
         </div>
         
@@ -217,15 +217,15 @@ const ActionCard = memo(({ action, onStatusChange, onEdit, compact, onNavigateTo
           {/* Header */}
           <div className="flex items-start justify-between gap-3 mb-2">
             <div className="flex items-center gap-2 flex-wrap">
-              {!isEditing && <h3 className="font-medium text-slate-900">{action.title}</h3>}
+              {!isEditing && <h3 className="font-semibold text-stone-900">{action.title}</h3>}
               <span className={`badge ${getBadge(action.status)}`}>{action.status}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400">{formatTime(action.created_at)}</span>
+              <span className="text-xs text-stone-400">{formatTime(action.created_at)}</span>
               {canEdit && (
                 <button
                   onClick={handleEditClick}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                  className="p-1.5 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-lg transition-all duration-150"
                   title="Edit"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -236,19 +236,19 @@ const ActionCard = memo(({ action, onStatusChange, onEdit, compact, onNavigateTo
             </div>
           </div>
 
-          {/* Edit form */}
+          {/* Edit form - warmer styling */}
           {isEditing ? (
-            <div className="p-4 bg-slate-50 rounded-xl space-y-4 animate-in">
+            <div className="p-4 bg-gradient-to-br from-stone-50 to-amber-50/20 rounded-xl space-y-4 animate-in border border-stone-100/50">
               {/* Task badge */}
               <div className="flex items-center gap-2">
-                <span className="text-xs px-2 py-1 bg-spratt-blue-50 text-spratt-blue rounded font-medium">
+                <span className="text-xs px-2.5 py-1 bg-gradient-to-r from-teal-50 to-cyan-50 text-teal-700 rounded-full font-semibold border border-teal-100">
                   ☐ Salesforce Task
                 </span>
               </div>
               
               {/* Title */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Title</label>
+                <label className="block text-xs font-semibold text-stone-600 mb-1">Title</label>
                 <input
                   type="text"
                   value={title}
@@ -260,7 +260,7 @@ const ActionCard = memo(({ action, onStatusChange, onEdit, compact, onNavigateTo
               
               {/* Description */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Description</label>
+                <label className="block text-xs font-semibold text-stone-600 mb-1">Description</label>
                 <textarea
                   value={description}
                   onChange={e => setDescription(e.target.value)}
@@ -271,15 +271,15 @@ const ActionCard = memo(({ action, onStatusChange, onEdit, compact, onNavigateTo
               </div>
 
               {/* Extracted Fields - Editable */}
-              <div className="border-t border-slate-200 pt-4">
-                <label className="block text-xs font-medium text-slate-500 mb-3 uppercase tracking-wide">
+              <div className="border-t border-stone-200 pt-4">
+                <label className="block text-xs font-semibold text-stone-500 mb-3 uppercase tracking-wide">
                   Details
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {metadataFields.map(field => (
                     <div key={field.key}>
-                      <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 mb-1">
-                        <span className="opacity-60">{field.icon}</span>
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-stone-600 mb-1">
+                        <span className="opacity-70">{field.icon}</span>
                         {field.label}
                       </label>
                       {field.type === 'datetime-local' ? (
