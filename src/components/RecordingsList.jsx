@@ -187,18 +187,16 @@ const RecordingCard = memo(({ recording, expandedSection, onToggleSection, onEdi
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
           </button>
-          {/* Show retry button for completed, pending, or failed recordings */}
-          {['completed', 'pending', 'failed'].includes(recording.transcription_status) && (
-            <button
-              onClick={handleRetranscribe}
-              className="p-1.5 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-lg transition-colors"
-              title={recording.transcription_status === 'completed' ? 'Re-transcribe' : 'Retry transcription'}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
-          )}
+          {/* Show retry button for all statuses except when actively processing a new one */}
+          <button
+            onClick={handleRetranscribe}
+            className="p-1.5 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-lg transition-colors"
+            title={recording.transcription_status === 'completed' ? 'Re-transcribe' : 'Retry transcription'}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -443,7 +441,35 @@ export const RecordingsList = memo(({ limit, compact, onNavigateToAction }) => {
       if (recordingsResult.error) throw recordingsResult.error
       if (actionsResult.error) throw actionsResult.error
       
-      setRecordings(recordingsResult.data || [])
+      const fetchedRecordings = recordingsResult.data || []
+      
+      // Auto-fix: recordings with transcription but stuck in processing/pending
+      const stuckRecordings = fetchedRecordings.filter(r => 
+        r.transcription && 
+        r.transcription.length > 0 && 
+        !r.transcription.startsWith('[') &&
+        ['processing', 'pending'].includes(r.transcription_status)
+      )
+      
+      if (stuckRecordings.length > 0) {
+        console.log(`Fixing ${stuckRecordings.length} stuck recordings...`)
+        await Promise.all(stuckRecordings.map(r => 
+          supabase
+            .from('recordings')
+            .update({ transcription_status: 'completed' })
+            .eq('id', r.id)
+        ))
+        // Re-fetch after fix
+        const { data: fixed } = await supabase
+          .from('recordings')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(limit || 20)
+        setRecordings(fixed || fetchedRecordings)
+      } else {
+        setRecordings(fetchedRecordings)
+      }
+      
       setActions(actionsResult.data || [])
     } catch (error) {
       console.error('Error:', error)
