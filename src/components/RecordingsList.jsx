@@ -442,23 +442,32 @@ export const RecordingsList = memo(({ limit, compact, onNavigateToAction }) => {
       if (actionsResult.error) throw actionsResult.error
       
       const fetchedRecordings = recordingsResult.data || []
+      const fetchedActions = actionsResult.data || []
       
-      // Auto-fix: recordings with transcription but stuck in processing/pending
-      const stuckRecordings = fetchedRecordings.filter(r => 
-        r.transcription && 
-        r.transcription.length > 0 && 
-        !r.transcription.startsWith('[') &&
-        ['processing', 'pending'].includes(r.transcription_status)
-      )
+      // Auto-fix: recordings stuck in processing/pending that actually have content
+      const stuckRecordings = fetchedRecordings.filter(r => {
+        if (!['processing', 'pending'].includes(r.transcription_status)) return false
+        
+        // Has transcription text
+        const hasTranscription = r.transcription && r.transcription.length > 0 && !r.transcription.startsWith('[')
+        
+        // Has actions extracted (meaning transcription definitely worked)
+        const hasActions = fetchedActions.some(a => a.recording_id === r.id)
+        
+        return hasTranscription || hasActions
+      })
       
       if (stuckRecordings.length > 0) {
-        console.log(`Fixing ${stuckRecordings.length} stuck recordings...`)
-        await Promise.all(stuckRecordings.map(r => 
-          supabase
+        console.log(`Auto-fixing ${stuckRecordings.length} stuck recordings...`, stuckRecordings.map(r => r.id))
+        
+        // Update all stuck recordings to completed
+        for (const r of stuckRecordings) {
+          await supabase
             .from('recordings')
             .update({ transcription_status: 'completed' })
             .eq('id', r.id)
-        ))
+        }
+        
         // Re-fetch after fix
         const { data: fixed } = await supabase
           .from('recordings')
@@ -470,7 +479,7 @@ export const RecordingsList = memo(({ limit, compact, onNavigateToAction }) => {
         setRecordings(fetchedRecordings)
       }
       
-      setActions(actionsResult.data || [])
+      setActions(fetchedActions)
     } catch (error) {
       console.error('Error:', error)
     } finally {
