@@ -1,0 +1,20 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "powershell",
+    "SUPABASE_URL": "https://YOUR_PROJECT.supabase.co",
+    "SUPABASE_SERVICE_KEY": "sb_secret_...",
+    "TWILIO_ACCOUNT_SID": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "TWILIO_AUTH_TOKEN": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "TWILIO_API_KEY_SID": "SKxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "TWILIO_API_KEY_SECRET": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "TWILIO_TWIML_APP_SID": "APxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "TWILIO_PUSH_CREDENTIAL_SID": "CRxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "TWILIO_NUMBER": "+6498869806",
+    "TWILIO_APP_CLIENT_IDENTITY": "bo-datan8",
+    "CALL_FALLBACK_E164": "+64278802333",
+    "CALL_RING_TIMEOUT_SECONDS": "15",
+    "APP_API_SHARED_SECRET": "replace-me"
+  }
+}
